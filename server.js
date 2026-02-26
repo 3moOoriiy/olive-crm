@@ -13,6 +13,9 @@ const VALID_STATUSES = ['first_attempt', 'second_attempt', 'third_attempt', 'con
 
 // ═══════════════ SERVER SETUP ═══════════════
 const app = express();
+
+// ✅ مهم على Render/Proxy عشان req.ip يبقى IP الحقيقي
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = new Server(server);
 
