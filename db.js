@@ -1,4 +1,5 @@
 const initSqlJs = require('sql.js');
+const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -162,6 +163,27 @@ async function initDB() {
 
   // One-time cleanup: merge duplicate customers with same normalized phone
   mergeDuplicateCustomers();
+  // ✅ Seed default admin (first run only)
+try {
+  const stmt = db.prepare("SELECT id FROM users WHERE email = ?");
+  stmt.bind(["admin@crm.com"]);
+  const exists = stmt.step();
+  stmt.free();
+
+  if (!exists) {
+    const hash = bcrypt.hashSync("123", 10);
+
+    db.run(
+      `INSERT INTO users (name, email, password_hash, role, avatar_initials, color, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      ["Admin", "admin@crm.com", hash, "admin", "AD", "#16a34a"]
+    );
+
+    console.log("✅ Seeded default admin: admin@crm.com / 123");
+  }
+} catch (e) {
+  console.error("Admin seed error:", e.message);
+}
 
   saveDB();
   return db;
