@@ -46,10 +46,11 @@ function generateToken(user) {
 }
 
 function loginHandler(req, res) {
-  const ip = req.ip || req.connection.remoteAddress;
-  if (!checkRateLimit(ip)) {
-    return res.status(429).json({ error: 'محاولات كثيرة. حاول بعد 15 دقيقة' });
-  }
+  const ip =
+    (req.headers['x-forwarded-for']?.split(',')[0]?.trim()) ||
+    req.ip ||
+    req.connection?.remoteAddress ||
+    'unknown';
 
   const { email, password } = req.body;
   if (!email || !password) {
@@ -58,18 +59,29 @@ function loginHandler(req, res) {
 
   const db = getDB();
   const user = db.get('SELECT * FROM users WHERE email = ? AND is_active = 1', [email]);
+
+  // ✅ Rate limit فقط عند الفشل
   if (!user) {
+    if (!checkRateLimit(ip)) {
+      return res.status(429).json({ error: 'محاولات كثيرة. حاول بعد 15 دقيقة' });
+    }
     return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
   }
 
   const valid = bcrypt.compareSync(password, user.password_hash);
   if (!valid) {
+    if (!checkRateLimit(ip)) {
+      return res.status(429).json({ error: 'محاولات كثيرة. حاول بعد 15 دقيقة' });
+    }
     return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
   }
 
+  // ✅ نجاح: صفّر المحاولات
+  loginAttempts.delete(ip);
+
   const token = generateToken(user);
   const { password_hash, ...safeUser } = user;
-  res.json({ token, user: safeUser });
+  return res.json({ token, user: safeUser });
 }
 
 function requireAuth(req, res, next) {
