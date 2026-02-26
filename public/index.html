@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Olive CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=5">
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:48px;margin-bottom:8px">🫒</div>
+      <h1 style="font-size:22px;font-weight:800;color:#1e4d0f">Olive CRM</h1>
+      <p style="font-size:12px;color:#6b7280;margin-top:4px">نظام إدارة علاقات العملاء</p>
+    </div>
+    <div style="padding:10px 14px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;margin-bottom:20px">
+      <p style="font-size:11px;color:#166534;font-weight:600;margin-bottom:8px">حسابات تجريبية (كلمة المرور: 123)</p>
+      <div class="flex wrap gap6">
+        <button class="btn btn-ghost btn-sm" onclick="fillLogin('admin@crm.com')">Admin</button>
+        <button class="btn btn-ghost btn-sm" onclick="fillLogin('sup@crm.com')">Supervisor</button>
+        <button class="btn btn-ghost btn-sm" onclick="fillLogin('agent1@crm.com')">Agent</button>
+      </div>
+    </div>
+    <div class="form-group"><label>البريد الإلكتروني</label><input id="l-email" type="email" placeholder="admin@crm.com"></div>
+    <div class="form-group"><label>كلمة المرور</label><input id="l-pass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div id="l-err" class="alert alert-red hidden"></div>
+    <button class="btn btn-primary btn-lg" style="width:100%" onclick="doLogin()">دخول إلى النظام</button>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div id="app" class="hidden">
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-brand-icon">🫒</div>
+      <div>
+        <div class="sb-brand-name">Olive CRM</div>
+        <div class="sb-brand-sub">إدارة العملاء</div>
+      </div>
+    </div>
+    <div class="sb-links" id="sb-links"></div>
+    <div class="sb-user" id="sb-user"></div>
+    <div class="sb-status" id="sb-status"></div>
+  </div>
+
+  <!-- Main Area -->
+  <div id="main">
+    <div id="topbar">
+      <button id="menu-btn" class="btn btn-ghost btn-sm mobile-only" onclick="toggleSidebar()">☰</button>
+      <h2 id="topbar-title" style="font-size:16px;font-weight:700;flex:1"></h2>
+      <div id="topbar-user" class="desktop-only" style="text-align:left;margin-left:8px"></div>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">خروج</button>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL ═══════════════ -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="handleModalClick(event)">
+  <div id="modal-box" class="modal-box">
+    <div class="modal-hdr">
+      <h3 id="modal-title"></h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()" style="padding:4px 8px">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-ftr" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ TOOLTIP ═══════════════ -->
+<div id="cust-tooltip" class="cust-tooltip"></div>
+
+<!-- ═══════════════ HIDDEN FILE INPUT ═══════════════ -->
+<input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelFile(event)">
+
+<!-- ═══════════════ SCRIPTS ═══════════════ -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js?v=5"></script>
+</body>
+</html>
