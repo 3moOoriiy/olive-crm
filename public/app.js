@@ -2170,8 +2170,15 @@ function showQRModal() {
       if (status.connected) {
         waConnected = true;
         renderSidebar();
+        if (state.view === 'settings') renderContent();
         container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">✅</div><p style="color:#16a34a;font-weight:700">واتساب متصل بالفعل!</p>`;
         clearInterval(qrPollTimer); qrPollTimer = null;
+        setTimeout(closeModal, 2000);
+      } else if (status.authenticated) {
+        container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">🔐</div>
+          <p style="color:#16a34a;font-weight:600">تم مسح الرمز بنجاح!</p>
+          <p style="color:var(--muted);font-size:12px;margin-top:8px">جاري تحميل المحادثات... قد يستغرق دقيقة</p>
+          <div style="margin-top:12px;width:50px;height:50px;border:4px solid #e5e7eb;border-top-color:#16a34a;border-radius:50%;animation:spin 1s linear infinite;margin-inline:auto"></div>`;
       } else if (status.qrCode) {
         container.innerHTML = `<img src="${status.qrCode}" style="max-width:280px;border-radius:12px"><p style="margin-top:12px;color:var(--muted);font-size:12px">امسح الرمز بتطبيق واتساب من هاتفك</p>`;
       } else if (status.initializing) {
@@ -2878,6 +2885,16 @@ socket.on('whatsapp:qr', ({ qrDataUrl }) => {
   const container = document.getElementById('qr-container');
   if (container) {
     container.innerHTML = `<img src="${qrDataUrl}" style="max-width:280px;border-radius:12px"><p style="margin-top:12px;color:var(--muted);font-size:12px">امسح الرمز بتطبيق واتساب من هاتفك</p>`;
+  }
+});
+
+socket.on('whatsapp:authenticated', () => {
+  const container = document.getElementById('qr-container');
+  if (container) {
+    container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">🔐</div>
+      <p style="color:#16a34a;font-weight:600">تم مسح الرمز بنجاح!</p>
+      <p style="color:var(--muted);font-size:12px;margin-top:8px">جاري تحميل المحادثات... قد يستغرق دقيقة</p>
+      <div style="margin-top:12px;width:50px;height:50px;border:4px solid #e5e7eb;border-top-color:#16a34a;border-radius:50%;animation:spin 1s linear infinite;margin-inline:auto"></div>`;
   }
 });
 

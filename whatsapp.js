@@ -4,7 +4,7 @@ const path = require('path');
 const { getDB, normalizePhone } = require('./db');
 
 let waClient = null;
-let waStatus = { connected: false, qrCode: null, phoneNumber: null, initializing: false };
+let waStatus = { connected: false, qrCode: null, phoneNumber: null, initializing: false, authenticated: false };
 let ioRef = null;
 
 /**
@@ -120,6 +120,8 @@ function initWhatsApp(io) {
   waClient.on('ready', () => {
     console.log('✅ WhatsApp connected!');
     waStatus.connected = true;
+    waStatus.authenticated = true;
+    waStatus.initializing = false;
     waStatus.qrCode = null;
     const info = waClient.info;
     waStatus.phoneNumber = info ? info.wid.user : '';
@@ -127,7 +129,10 @@ function initWhatsApp(io) {
   });
 
   waClient.on('authenticated', () => {
-    console.log('🔐 WhatsApp authenticated');
+    console.log('🔐 WhatsApp authenticated - loading chats...');
+    waStatus.authenticated = true;
+    waStatus.qrCode = null;
+    io.emit('whatsapp:authenticated', {});
   });
 
   waClient.on('auth_failure', (msg) => {
