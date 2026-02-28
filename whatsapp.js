@@ -4,7 +4,7 @@ const path = require('path');
 const { getDB, normalizePhone } = require('./db');
 
 let waClient = null;
-let waStatus = { connected: false, qrCode: null, phoneNumber: null };
+let waStatus = { connected: false, qrCode: null, phoneNumber: null, initializing: false };
 let ioRef = null;
 
 /**
@@ -69,7 +69,26 @@ function initWhatsApp(io) {
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
       '--disable-gpu',
-      '--single-process'
+      '--single-process',
+      '--no-zygote',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-sync',
+      '--disable-translate',
+      '--disable-default-apps',
+      '--mute-audio',
+      '--hide-scrollbars',
+      '--metrics-recording-only',
+      '--no-default-browser-check',
+      '--disable-hang-monitor',
+      '--disable-prompt-on-repost',
+      '--disable-domain-reliability',
+      '--disable-component-update',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-ipc-flooding-protection',
+      '--js-flags=--max-old-space-size=256'
     ]
   };
 
@@ -236,9 +255,15 @@ function initWhatsApp(io) {
 
   // Initialize the client
   console.log('🔄 Initializing WhatsApp client...');
-  waClient.initialize().catch(err => {
+  waStatus.initializing = true;
+  io.emit('whatsapp:status', { initializing: true });
+  waClient.initialize().then(() => {
+    waStatus.initializing = false;
+  }).catch(err => {
     console.error('WhatsApp initialization error:', err);
     console.log('⚠️  WhatsApp will not be available. You can still use the CRM without it.');
+    waStatus.initializing = false;
+    io.emit('whatsapp:status', { initializing: false, error: 'فشل تشغيل الواتساب. تحقق من إعدادات السيرفر' });
   });
 }
 

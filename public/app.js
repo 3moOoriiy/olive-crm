@@ -247,6 +247,12 @@ async function loadAppData() {
   } catch (e) {
     console.error('Failed to load app data:', e);
   }
+  // Check WhatsApp connection status on startup
+  try {
+    const waStatus = await api('/whatsapp/status');
+    waConnected = !!waStatus.connected;
+    renderSidebar();
+  } catch(e) {}
 }
 
 // ═══════════════ SIDEBAR / NAV ═══════════════
@@ -2162,10 +2168,17 @@ function showQRModal() {
     api('/whatsapp/status').then(status => {
       if (!document.getElementById('qr-container')) { clearInterval(qrPollTimer); qrPollTimer = null; return; }
       if (status.connected) {
+        waConnected = true;
+        renderSidebar();
         container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">✅</div><p style="color:#16a34a;font-weight:700">واتساب متصل بالفعل!</p>`;
         clearInterval(qrPollTimer); qrPollTimer = null;
       } else if (status.qrCode) {
         container.innerHTML = `<img src="${status.qrCode}" style="max-width:280px;border-radius:12px"><p style="margin-top:12px;color:var(--muted);font-size:12px">امسح الرمز بتطبيق واتساب من هاتفك</p>`;
+      } else if (status.initializing) {
+        container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">⏳</div>
+          <p style="color:var(--muted);font-weight:600">جاري تشغيل محرك الواتساب...</p>
+          <p style="color:var(--muted);font-size:11px;margin-top:8px">قد يستغرق 30-60 ثانية على السيرفر</p>
+          <div style="margin-top:12px;width:50px;height:50px;border:4px solid #e5e7eb;border-top-color:#16a34a;border-radius:50%;animation:spin 1s linear infinite;margin-inline:auto"></div>`;
       } else {
         container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">⏳</div><p style="color:var(--muted)">في انتظار رمز QR من الواتساب...</p><p style="color:var(--muted);font-size:11px;margin-top:8px">تأكد أن السيرفر شغال وبيحاول يتصل</p>`;
       }
@@ -2174,7 +2187,7 @@ function showQRModal() {
 
   updateQR();
   if (qrPollTimer) clearInterval(qrPollTimer);
-  qrPollTimer = setInterval(updateQR, 5000);
+  qrPollTimer = setInterval(updateQR, 3000);
 }
 
 // ═══════════════ ADD USER MODAL ═══════════════
@@ -2871,6 +2884,7 @@ socket.on('whatsapp:qr', ({ qrDataUrl }) => {
 socket.on('whatsapp:ready', ({ phoneNumber }) => {
   waConnected = true;
   renderSidebar();
+  if (state.view === 'settings') renderContent();
   showToast('✅ تم ربط الواتساب بنجاح!');
   const container = document.getElementById('qr-container');
   if (container) {
@@ -2883,6 +2897,19 @@ socket.on('whatsapp:disconnected', () => {
   waConnected = false;
   renderSidebar();
   showToast('واتساب انقطع الاتصال', 'error');
+});
+
+socket.on('whatsapp:status', ({ initializing, error }) => {
+  const container = document.getElementById('qr-container');
+  if (container && initializing) {
+    container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">⏳</div>
+      <p style="color:var(--muted);font-weight:600">جاري تشغيل محرك الواتساب...</p>
+      <p style="color:var(--muted);font-size:11px;margin-top:8px">قد يستغرق 30-60 ثانية على السيرفر</p>
+      <div style="margin-top:12px;width:60px;height:60px;border:4px solid #e5e7eb;border-top-color:#16a34a;border-radius:50%;animation:spin 1s linear infinite;margin-inline:auto"></div>`;
+  }
+  if (container && error) {
+    container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">❌</div><p style="color:#dc2626;font-weight:600">${error}</p>`;
+  }
 });
 
 socket.on('customer:updated', ({ customer }) => {

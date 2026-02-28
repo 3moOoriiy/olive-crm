@@ -1,5 +1,6 @@
 /* ═══════════════ OLIVE CRM - BOSTA STYLE ═══════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 :root {
   --primary: #1e4d0f;
