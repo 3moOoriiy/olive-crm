@@ -5,7 +5,8 @@ const { Server } = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { initDB, getDB, normalizePhone } = require('./db');
-const { loginHandler, requireAuth, requireRole, requirePermission, PERMISSIONS } = require('./auth');
+const jwt = require('jsonwebtoken');
+const { loginHandler, requireAuth, requireRole, requirePermission, PERMISSIONS, JWT_SECRET } = require('./auth');
 const { initWhatsApp, getStatus, sendMessage } = require('./whatsapp');
 
 // ═══════════════ CONSTANTS ═══════════════
@@ -881,6 +882,80 @@ app.post('/api/moderator-orders', requireAuth, requirePermission('orders:create'
   res.status(201).json({ order, customer });
 });
 
+// ═══════════════ ONLINE USERS TRACKING ═══════════════
+const onlineUsers = new Map(); // userId → Set<socketId>
+
+function getOnlineUsersList() {
+  const db = getDB();
+  const userIds = [...onlineUsers.keys()];
+  if (userIds.length === 0) return [];
+  const placeholders = userIds.map(() => '?').join(',');
+  return db.all(`SELECT id, name, avatar_initials, color, role FROM users WHERE id IN (${placeholders}) AND is_active = 1`, userIds);
+}
+
+// ═══════════════ STAFF CHAT API ═══════════════
+app.get('/api/staff-chat/conversations', requireAuth, (req, res) => {
+  const db = getDB();
+  const me = req.user.id;
+  const users = db.all('SELECT id, name, avatar_initials, color, role FROM users WHERE is_active = 1 AND id != ?', [me]);
+
+  const conversations = users.map(u => {
+    const lastMsg = db.get(
+      `SELECT text, created_at, from_user_id FROM staff_messages
+       WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)
+       ORDER BY created_at DESC LIMIT 1`,
+      [me, u.id, u.id, me]
+    );
+    const unreadRow = db.get(
+      'SELECT COUNT(*) as cnt FROM staff_messages WHERE from_user_id = ? AND to_user_id = ? AND is_read = 0',
+      [u.id, me]
+    );
+    return {
+      user: u,
+      lastMessage: lastMsg ? lastMsg.text : '',
+      lastMessageAt: lastMsg ? lastMsg.created_at : '',
+      lastMessageFromMe: lastMsg ? lastMsg.from_user_id === me : false,
+      unread: unreadRow ? unreadRow.cnt : 0,
+      online: onlineUsers.has(u.id)
+    };
+  });
+
+  // Sort: has messages first (by last message time desc), then no messages
+  conversations.sort((a, b) => {
+    if (a.lastMessageAt && !b.lastMessageAt) return -1;
+    if (!a.lastMessageAt && b.lastMessageAt) return 1;
+    if (a.lastMessageAt && b.lastMessageAt) return b.lastMessageAt.localeCompare(a.lastMessageAt);
+    return a.user.name.localeCompare(b.user.name);
+  });
+
+  res.json(conversations);
+});
+
+app.get('/api/staff-chat/messages/:userId', requireAuth, (req, res) => {
+  const db = getDB();
+  const me = req.user.id;
+  const other = parseInt(req.params.userId);
+  if (!other) return res.status(400).json({ error: 'معرف المستخدم غير صحيح' });
+
+  const messages = db.all(
+    `SELECT * FROM staff_messages
+     WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)
+     ORDER BY created_at ASC`,
+    [me, other, other, me]
+  );
+
+  // Mark messages from other as read
+  db.run('UPDATE staff_messages SET is_read = 1 WHERE from_user_id = ? AND to_user_id = ? AND is_read = 0', [other, me]);
+
+  res.json(messages);
+});
+
+app.get('/api/staff-chat/unread-count', requireAuth, (req, res) => {
+  const db = getDB();
+  const row = db.get('SELECT COUNT(*) as cnt FROM staff_messages WHERE to_user_id = ? AND is_read = 0', [req.user.id]);
+  res.json({ count: row ? row.cnt : 0 });
+});
+
 // ═══════════════ GLOBAL ERROR HANDLER ═══════════════
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
@@ -897,8 +972,82 @@ io.on('connection', (socket) => {
     socket.emit('whatsapp:qr', { qrDataUrl: status.qrCode });
   }
 
+  // ── User identity + online presence ──
+  socket.on('user:identify', (data) => {
+    try {
+      const decoded = jwt.verify(data.token, JWT_SECRET);
+      const userId = decoded.userId;
+      socket.userId = userId;
+
+      if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+      }
+      onlineUsers.get(userId).add(socket.id);
+
+      // Broadcast updated online list to all
+      io.emit('users:online', getOnlineUsersList());
+      console.log(`👤 User #${userId} online (${onlineUsers.get(userId).size} tabs)`);
+    } catch (e) {
+      console.log('Socket auth failed:', e.message);
+    }
+  });
+
+  // ── Staff chat: send message ──
+  socket.on('staff:message', (data) => {
+    if (!socket.userId) return;
+    const { toUserId, text } = data;
+    if (!toUserId || !text || !text.trim()) return;
+
+    const db = getDB();
+    const result = db.run(
+      'INSERT INTO staff_messages (from_user_id, to_user_id, text) VALUES (?, ?, ?)',
+      [socket.userId, toUserId, text.trim()]
+    );
+
+    const msg = db.get('SELECT * FROM staff_messages WHERE id = ?', [result.lastInsertRowid]);
+    if (!msg) return;
+
+    // Send to sender's sockets
+    const senderSockets = onlineUsers.get(socket.userId);
+    if (senderSockets) {
+      for (const sid of senderSockets) {
+        io.to(sid).emit('staff:message:new', msg);
+      }
+    }
+
+    // Send to recipient's sockets
+    const recipientSockets = onlineUsers.get(toUserId);
+    if (recipientSockets) {
+      for (const sid of recipientSockets) {
+        io.to(sid).emit('staff:message:new', msg);
+      }
+    }
+  });
+
+  // ── Staff chat: mark messages as read ──
+  socket.on('staff:messages:read', (data) => {
+    if (!socket.userId) return;
+    const { fromUserId } = data;
+    if (!fromUserId) return;
+
+    const db = getDB();
+    db.run('UPDATE staff_messages SET is_read = 1 WHERE from_user_id = ? AND to_user_id = ? AND is_read = 0',
+      [fromUserId, socket.userId]);
+  });
+
+  // ── Disconnect: remove from online tracking ──
   socket.on('disconnect', () => {
     console.log('🔌 Client disconnected:', socket.id);
+    if (socket.userId) {
+      const sockets = onlineUsers.get(socket.userId);
+      if (sockets) {
+        sockets.delete(socket.id);
+        if (sockets.size === 0) {
+          onlineUsers.delete(socket.userId);
+        }
+      }
+      io.emit('users:online', getOnlineUsersList());
+    }
   });
 });
 

@@ -76,12 +76,12 @@ const SOURCES = ["فيسبوك", "واتساب", "جوجل", "انستجرام",
 const REGIONS = ["القاهرة","الجيزة","الإسكندرية","الشرقية","الدقهلية","المنوفية","القليوبية","البحيرة","الغربية","كفر الشيخ","دمياط","بورسعيد","الإسماعيلية","السويس","الفيوم","بني سويف","المنيا","أسيوط","سوهاج","قنا","الأقصر","أسوان"];
 const ROLE_LABELS = { admin: "مدير", operations: "أوبريشن", supervisor: "سوبرفايزر", complaints: "مسئول شكاوي", call_center: "كول سنتر", moderator: "مودوريتور", agent: "موظف" };
 const PERMS = {
-  moderator:   ['view:dashboard', 'view:moderator_form', 'orders:create'],
-  call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
-  complaints:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
-  supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
-  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
-  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  moderator:   ['view:dashboard', 'view:moderator_form', 'view:staff_chat', 'orders:create'],
+  call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
+  complaints:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
+  supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
+  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
 };
 function can(perm) {
   const u = state.currentUser;
@@ -137,6 +137,15 @@ let state = {
   waSelectedChat: null,
   waChatPage: 1,
   waChatTotalPages: 1,
+  // Online users
+  onlineUsers: [],
+  // Staff chat
+  staffChatConversations: [],
+  staffChatSelectedUserId: null,
+  staffChatSelectedUser: null,
+  staffChatMessages: [],
+  staffChatSearch: '',
+  staffChatUnreadTotal: 0,
 };
 
 // ═══════════════ HELPERS ═══════════════
@@ -181,6 +190,8 @@ async function doLogin() {
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
     await loadAppData();
+    identifySocket();
+    loadStaffUnreadCount();
     renderAll();
   } catch (e) {
     const el = document.getElementById("l-err");
@@ -208,9 +219,18 @@ async function tryAutoLogin() {
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
     await loadAppData();
+    identifySocket();
+    loadStaffUnreadCount();
     renderAll();
   } catch (e) {
     localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+function identifySocket() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token && socket && socket.connected) {
+    socket.emit('user:identify', { token });
   }
 }
 
@@ -264,6 +284,13 @@ function setView(v) {
     state.waChatSearch = ''; state.waChatPage = 1;
     newMessageCount = 0;
   }
+  if (v === 'staffChat') {
+    state.staffChatConversations = [];
+    state.staffChatSelectedUserId = null;
+    state.staffChatSelectedUser = null;
+    state.staffChatMessages = [];
+    state.staffChatSearch = '';
+  }
   closeSidebar();
   renderAll();
   loadViewData();
@@ -316,6 +343,8 @@ async function loadViewData() {
       initMFPrice();
     } else if (state.view === 'whatsappChat') {
       await loadWAChatList(true);
+    } else if (state.view === 'staffChat') {
+      await loadStaffChatConversations();
     }
   } catch (e) { console.error('Load view data error:', e); }
 }
@@ -383,7 +412,8 @@ const VIEW_TITLES = {
   settings:       "الإعدادات",
   complaints:     "الشكاوي",
   moderatorForm:  "فورم الطلبات",
-  whatsappChat:   "واتساب"
+  whatsappChat:   "واتساب",
+  staffChat:      "المحادثات"
 };
 
 // ═══════════════ RENDER ALL ═══════════════
@@ -404,6 +434,7 @@ function renderSidebar() {
     { key: "followups",    label: "المتابعات",    icon: "🔔", perm: "view:followups" },
     { key: "orders",       label: "الطلبات",      icon: "📦", perm: "view:orders" },
     { key: "whatsappChat", label: "واتساب",       icon: "💬", perm: "view:whatsapp", badge: newMessageCount },
+    { key: "staffChat",    label: "المحادثات",    icon: "🗨️", perm: "view:staff_chat", badge: state.staffChatUnreadTotal },
     { key: "moderatorForm", label: "فورم الطلبات", icon: "📝", perm: "view:moderator_form" },
     { key: "complaints",   label: "الشكاوي",      icon: "📋", perm: "view:complaints" },
     { key: "performance",  label: "الأداء",       icon: "🏆", perm: "view:performance" },
@@ -453,6 +484,7 @@ function renderContent() {
   else if (v === "moderatorForm")  el.innerHTML = renderModeratorForm();
   else if (v === "settings")       el.innerHTML = renderSettings();
   else if (v === "whatsappChat")   el.innerHTML = renderWhatsAppChat();
+  else if (v === "staffChat")      el.innerHTML = renderStaffChat();
 }
 
 // ═══════════════ PAGINATION HTML HELPER ═══════════════
@@ -2537,7 +2569,217 @@ async function printInvoice(orderId) {
   }
 }
 
+// ═══════════════ ONLINE USERS TOPBAR ═══════════════
+function renderOnlineUsers() {
+  const el = document.getElementById('topbar-online');
+  if (!el) return;
+  const me = state.currentUser?.id;
+  const others = state.onlineUsers.filter(u => u.id !== me);
+  if (others.length === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = others.map(u => `
+    <div class="online-avatar" style="background:${u.color || '#6366f1'}" title="${esc(u.name)}" onclick="openQuickChat(${u.id})">
+      ${esc(u.avatar_initials || '')}
+      <span class="online-dot"></span>
+    </div>
+  `).join('');
+}
+
+function openQuickChat(userId) {
+  state.staffChatSelectedUserId = userId;
+  setView('staffChat');
+}
+
+// ═══════════════ STAFF CHAT ═══════════════
+async function loadStaffUnreadCount() {
+  try {
+    const data = await api('/staff-chat/unread-count');
+    state.staffChatUnreadTotal = data.count || 0;
+    renderSidebar();
+  } catch(e) {}
+}
+
+async function loadStaffChatConversations() {
+  try {
+    const data = await api('/staff-chat/conversations');
+    state.staffChatConversations = data;
+    if (state.view === 'staffChat') {
+      renderStaffChatList();
+    }
+  } catch(e) { console.error('Load staff conversations error:', e); }
+}
+
+async function selectStaffChat(userId) {
+  state.staffChatSelectedUserId = userId;
+  const conv = state.staffChatConversations.find(c => c.user.id === userId);
+  state.staffChatSelectedUser = conv ? conv.user : state.users.find(u => u.id === userId);
+  try {
+    const messages = await api('/staff-chat/messages/' + userId);
+    state.staffChatMessages = messages;
+    // Mark as read via socket
+    socket.emit('staff:messages:read', { fromUserId: userId });
+    // Update unread count
+    if (conv && conv.unread > 0) {
+      state.staffChatUnreadTotal = Math.max(0, state.staffChatUnreadTotal - conv.unread);
+      conv.unread = 0;
+      renderSidebar();
+    }
+    renderStaffChatPanel();
+    renderStaffChatList();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+function sendStaffMessage() {
+  const input = document.getElementById('staff-chat-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text || !state.staffChatSelectedUserId) return;
+  socket.emit('staff:message', { toUserId: state.staffChatSelectedUserId, text });
+  input.value = '';
+  input.focus();
+}
+
+function renderStaffChat() {
+  return `<div class="wa-chat-container" style="height:calc(100vh - 56px)">
+    <div class="wa-chat-list" id="staff-chat-list-panel">
+      <div style="padding:10px">
+        <input type="text" class="search-box" placeholder="🔍 بحث..." value="${esc(state.staffChatSearch)}" oninput="onStaffChatSearch(this.value)">
+      </div>
+      <div id="staff-chat-list"></div>
+    </div>
+    <div class="wa-chat-panel" id="staff-chat-panel">
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px">
+        اختر محادثة للبدء 🗨️
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderStaffChatList() {
+  const el = document.getElementById('staff-chat-list');
+  if (!el) return;
+  let convs = state.staffChatConversations;
+  if (state.staffChatSearch) {
+    const s = state.staffChatSearch.toLowerCase();
+    convs = convs.filter(c => c.user.name.toLowerCase().includes(s));
+  }
+  if (convs.length === 0) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">لا توجد محادثات</div>';
+    return;
+  }
+  el.innerHTML = convs.map(c => {
+    const u = c.user;
+    const isSelected = state.staffChatSelectedUserId === u.id;
+    const isOnline = c.online;
+    const preview = c.lastMessage ? (c.lastMessageFromMe ? 'أنت: ' : '') + c.lastMessage.substring(0, 35) : '';
+    return `<div class="wa-chat-item ${isSelected ? 'active' : ''}" onclick="selectStaffChat(${u.id})">
+      <div style="position:relative;flex-shrink:0">
+        <div class="av" style="width:40px;height:40px;background:${u.color || '#6366f1'};font-size:14px">${esc(u.avatar_initials || '')}</div>
+        ${isOnline ? '<span class="online-dot" style="bottom:1px;right:1px"></span>' : ''}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600;font-size:13px">${esc(u.name)}</span>
+          <span style="font-size:10px;color:var(--muted)">${c.lastMessageAt ? fmtTime(c.lastMessageAt) : ''}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+          <span style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(preview) || '<span style="color:#ccc">ابدأ محادثة</span>'}</span>
+          ${c.unread > 0 ? `<span class="sb-badge" style="font-size:10px;min-width:18px;height:18px">${c.unread}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStaffChatPanel() {
+  const panel = document.getElementById('staff-chat-panel');
+  if (!panel) return;
+  const u = state.staffChatSelectedUser;
+  if (!u) {
+    panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px">اختر محادثة للبدء 🗨️</div>';
+    return;
+  }
+  const isOnline = state.onlineUsers.some(ou => ou.id === u.id);
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:#fafafa">
+      <div style="position:relative">
+        <div class="av" style="width:36px;height:36px;background:${u.color || '#6366f1'};font-size:13px">${esc(u.avatar_initials || '')}</div>
+        ${isOnline ? '<span class="online-dot" style="bottom:1px;right:1px"></span>' : ''}
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
+        <div style="font-size:11px;color:var(--muted)">${isOnline ? '🟢 متصل' : '⚪ غير متصل'}</div>
+      </div>
+    </div>
+    <div id="staff-chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px"></div>
+    <div style="display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:#fafafa">
+      <input id="staff-chat-input" type="text" class="search-box" style="flex:1;margin:0" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter')sendStaffMessage()">
+      <button class="btn btn-primary btn-sm" onclick="sendStaffMessage()">إرسال</button>
+    </div>`;
+  renderStaffChatMessages();
+}
+
+function renderStaffChatMessages() {
+  const el = document.getElementById('staff-chat-messages');
+  if (!el) return;
+  const me = state.currentUser?.id;
+  if (state.staffChatMessages.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">لا توجد رسائل بعد. ابدأ المحادثة! 💬</div>';
+    return;
+  }
+  el.innerHTML = state.staffChatMessages.map(m => {
+    const isMe = m.from_user_id === me;
+    return `<div class="staff-msg ${isMe ? 'me' : 'other'}">
+      <div class="bubble">${esc(m.text)}</div>
+      <div class="msg-time">${fmtTime(m.created_at)}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function onStaffChatSearch(val) {
+  state.staffChatSearch = val;
+  renderStaffChatList();
+}
+
 // ═══════════════ SOCKET.IO EVENTS ═══════════════
+socket.on('connect', () => {
+  identifySocket();
+});
+
+socket.on('users:online', (users) => {
+  state.onlineUsers = users || [];
+  renderOnlineUsers();
+});
+
+socket.on('staff:message:new', (msg) => {
+  if (!state.currentUser) return;
+  const me = state.currentUser.id;
+  const otherId = msg.from_user_id === me ? msg.to_user_id : msg.from_user_id;
+
+  // If viewing this conversation, append and mark read
+  if (state.view === 'staffChat' && state.staffChatSelectedUserId === otherId) {
+    state.staffChatMessages.push(msg);
+    renderStaffChatMessages();
+    if (msg.from_user_id !== me) {
+      socket.emit('staff:messages:read', { fromUserId: otherId });
+    }
+  } else if (msg.from_user_id !== me) {
+    // Not viewing: increment unread + toast
+    state.staffChatUnreadTotal++;
+    renderSidebar();
+    const sender = state.users.find(u => u.id === msg.from_user_id);
+    showToast(`💬 رسالة من ${sender ? sender.name : 'مستخدم'}: ${msg.text.substring(0, 40)}`, 'success');
+  }
+
+  // Update conversations list if on staffChat view
+  if (state.view === 'staffChat') {
+    loadStaffChatConversations();
+  }
+});
+
 socket.on('whatsapp:qr', ({ qrDataUrl }) => {
   waConnected = false;
   latestQR    = qrDataUrl;

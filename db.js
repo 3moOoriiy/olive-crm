@@ -158,6 +158,20 @@ async function initDB() {
   db.run(`CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_complaints_customer ON complaints(customer_id)`);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS staff_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id INTEGER NOT NULL REFERENCES users(id),
+      to_user_id INTEGER NOT NULL REFERENCES users(id),
+      text TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_staff_msg_pair ON staff_messages(from_user_id, to_user_id, created_at)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_staff_msg_unread ON staff_messages(to_user_id, is_read)`);
+
   // Migrate old role names: agent → call_center (idempotent)
   try { db.run("UPDATE users SET role = 'call_center' WHERE role = 'agent'"); } catch(e) {}
 
