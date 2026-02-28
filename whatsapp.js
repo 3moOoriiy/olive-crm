@@ -60,22 +60,30 @@ function findCustomerByPhone(db, rawPhone) {
 function initWhatsApp(io) {
   ioRef = io;
 
+  const puppeteerOpts = {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--disable-gpu',
+      '--single-process'
+    ]
+  };
+
+  // On Render/production: use system-installed Chromium
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    puppeteerOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
   waClient = new Client({
     authStrategy: new LocalAuth({
       dataPath: path.join(__dirname, 'data', '.wwebjs_auth'),
       clientId: 'olive-crm'
     }),
-    puppeteer: {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--disable-gpu'
-      ]
-    }
+    puppeteer: puppeteerOpts
   });
 
   waClient.on('qr', async (qr) => {

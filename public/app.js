@@ -724,10 +724,10 @@ function renderCustomers() {
     <span style="font-size:12px;color:var(--muted)">إجمالي النتائج: <b>${state.totalItems}</b> عميل • صفحة <b>${state.currentPage}</b> من <b>${state.totalPages}</b></span>
   </div>
 
-  <div class="card" style="overflow:auto">
+  <div class="card"><div class="tbl-wrap">
     <table class="tbl">
       <thead>
-        <tr>${["العميل","الهاتف","العنوان","المصدر","الحالة","الموظف","آخر تعديل","آخر تواصل",""].map(h => `<th>${h}</th>`).join("")}</tr>
+        <tr><th>العميل</th><th>الهاتف</th><th class="mob-hide">العنوان</th><th class="mob-hide">المصدر</th><th>الحالة</th><th class="mob-hide">الموظف</th><th class="mob-hide">آخر تعديل</th><th>آخر تواصل</th><th></th></tr>
       </thead>
       <tbody>
       ${filtered.map(c => {
@@ -737,11 +737,11 @@ function renderCustomers() {
         return `<tr style="cursor:pointer" onclick="selectCustomer(${c.id})" onmouseenter="showCustTooltip(event,${c.id})" onmousemove="moveCustTooltip(event)" onmouseleave="hideCustTooltip()">
           <td><div class="flex gap6"><div><div style="font-weight:600">${esc(c.name)}</div>${c.notes ? `<div style="font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.notes)}</div>` : ""}</div></div></td>
           <td style="direction:ltr;text-align:right">${formatPhone(c.phone)}</td>
-          <td style="min-width:200px"><div style="font-size:13px;white-space:normal;word-break:break-word">${esc(fullAddr) || '—'}</div></td>
-          <td><span class="tag" style="background:#f0fdf4;color:#166534">${esc(c.source)}</span></td>
+          <td class="mob-hide" style="min-width:200px"><div style="font-size:13px;white-space:normal;word-break:break-word">${esc(fullAddr) || '—'}</div></td>
+          <td class="mob-hide"><span class="tag" style="background:#f0fdf4;color:#166534">${esc(c.source)}</span></td>
           <td>${stBadge(c.status)}</td>
-          <td>${agent ? `<div class="flex gap6">${avHtml(agent, 24)}<span style="font-size:12px">${esc(agent.name)}</span></div>` : "—"}</td>
-          <td style="font-size:12px;white-space:nowrap"><div>${c.updated_at ? fmtDate(c.updated_at) + ' ' + fmtTime(c.updated_at) : '—'}</div>${c.updated_by_name ? `<div style="font-size:11px;color:var(--muted)">${esc(c.updated_by_name)}</div>` : ''}</td>
+          <td class="mob-hide">${agent ? `<div class="flex gap6">${avHtml(agent, 24)}<span style="font-size:12px">${esc(agent.name)}</span></div>` : "—"}</td>
+          <td class="mob-hide" style="font-size:12px;white-space:nowrap"><div>${c.updated_at ? fmtDate(c.updated_at) + ' ' + fmtTime(c.updated_at) : '—'}</div>${c.updated_by_name ? `<div style="font-size:11px;color:var(--muted)">${esc(c.updated_by_name)}</div>` : ''}</td>
           <td style="color:${d >= 3 ? '#dc2626' : 'var(--muted)'};font-size:12px">${d === 0 ? "اليوم" : d === 1 ? "أمس" : `منذ ${d} أيام`}</td>
           <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();selectCustomer(${c.id})">عرض</button></td>
         </tr>`;
@@ -751,7 +751,7 @@ function renderCustomers() {
       </td></tr>` : ""}
       </tbody>
     </table>
-  </div>
+  </div></div>
 
   ${paginationHtml}
   </div>`;
@@ -995,10 +995,10 @@ function renderOrders() {
     <span style="margin-right:auto;font-weight:700;color:var(--primary)">إجمالي الصفحة: ${total.toLocaleString()} جنيه</span>
   </div>
 
-  <div class="card" style="overflow:auto">
+  <div class="card"><div class="tbl-wrap">
     <table class="tbl">
       <thead>
-        <tr>${["العميل","المنتج","الكمية","الإجمالي","الحالة","التاريخ",""].map(h => `<th>${h}</th>`).join("")}</tr>
+        <tr><th>العميل</th><th class="mob-hide">المنتج</th><th class="mob-hide">الكمية</th><th>الإجمالي</th><th>الحالة</th><th>التاريخ</th><th></th></tr>
       </thead>
       <tbody>
       ${allOrds.map(o => `<tr>
@@ -1006,8 +1006,8 @@ function renderOrders() {
           <div style="font-weight:600;cursor:pointer" onclick="selectCustomer(${o.customer_id})">${esc(o.customer_name)}</div>
           ${o.customer_region ? `<div style="font-size:11px;color:var(--muted)">${esc(o.customer_region)}</div>` : ''}
         </td>
-        <td>${esc(o.product_name)}</td>
-        <td>${o.qty}</td>
+        <td class="mob-hide">${esc(o.product_name)}</td>
+        <td class="mob-hide">${o.qty}</td>
         <td style="font-weight:700;color:var(--primary)">${(o.total || 0).toLocaleString()} جنيه</td>
         <td>
           <span class="badge" style="background:${o.status === 'تم التسليم' ? '#dcfce7' : o.status === 'مرتجع' ? '#fee2e2' : o.status === 'قيد الشحن' ? '#dbeafe' : '#fef9c3'};color:${o.status === 'تم التسليم' ? '#166534' : o.status === 'مرتجع' ? '#dc2626' : o.status === 'قيد الشحن' ? '#1e40af' : '#a16207'}">
@@ -1022,7 +1022,7 @@ function renderOrders() {
       </td></tr>` : ""}
       </tbody>
     </table>
-  </div>
+  </div></div>
 
   ${paginationHtml}
   </div>`;
@@ -1197,6 +1197,21 @@ async function selectWAChat(customerId) {
   } catch(e) { showToast('خطأ في تحميل الرسائل', 'error'); }
 }
 
+function closeMobileChat() {
+  if (state.view === 'whatsappChat') {
+    state.waSelectedChatId = null;
+    state.waSelectedChat = null;
+    state.waSelectedMessages = [];
+    renderContent();
+  } else if (state.view === 'staffChat') {
+    state.staffChatSelectedUserId = null;
+    state.staffChatSelectedUser = null;
+    state.staffChatMessages = [];
+    renderContent();
+    loadStaffChatConversations();
+  }
+}
+
 async function sendWAChatMessage() {
   const input = document.getElementById('wa-chat-input');
   const text = input?.value.trim();
@@ -1257,6 +1272,7 @@ function renderWhatsAppChat() {
   } else {
     panelHtml = `<div class="wa-chat-panel">
       <div class="wa-chat-header">
+        <button class="btn btn-ghost btn-sm wa-chat-back-btn" onclick="closeMobileChat()" style="display:none;padding:4px 8px">→</button>
         <div class="wa-chat-avatar">${esc(chat.name.substring(0, 2))}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${esc(chat.name)}</div>
@@ -1282,7 +1298,7 @@ function renderWhatsAppChat() {
     </div>`;
   }
 
-  return `<div class="wa-chat-container">
+  return `<div class="wa-chat-container ${selId && chat ? 'chat-open' : ''}">
     <div class="wa-chat-list">
       <div class="wa-chat-list-header">
         <div style="font-size:15px;font-weight:700;margin-bottom:10px">💬 المحادثات</div>
@@ -1484,10 +1500,10 @@ function renderComplaints() {
     <button class="btn btn-primary" style="margin-right:auto" onclick="openAddComplaintModal()">➕ شكوى جديدة</button>
   </div>
 
-  <div class="card" style="overflow:auto">
+  <div class="card"><div class="tbl-wrap">
     <table class="tbl">
       <thead>
-        <tr>${["#","العميل","رقم الشحنة","رقم الشكوى","النوع","الفيدباك","الحالة","بواسطة","التاريخ",""].map(h => `<th>${h}</th>`).join("")}</tr>
+        <tr><th>#</th><th>العميل</th><th class="mob-hide">رقم الشحنة</th><th class="mob-hide">رقم الشكوى</th><th>النوع</th><th class="mob-hide">الفيدباك</th><th>الحالة</th><th class="mob-hide">بواسطة</th><th class="mob-hide">التاريخ</th><th></th></tr>
       </thead>
       <tbody>
       ${complaints.map(c => {
@@ -1495,13 +1511,13 @@ function renderComplaints() {
         return `<tr>
           <td>${c.id}</td>
           <td>${c.customer_name ? `<span style="cursor:pointer;color:var(--primary);font-weight:600" onclick="selectCustomer(${c.customer_id})">${esc(c.customer_name)}</span>` : '—'}</td>
-          <td>${esc(c.shipment_number || '—')}</td>
-          <td>${esc(c.complaint_number || '—')}</td>
+          <td class="mob-hide">${esc(c.shipment_number || '—')}</td>
+          <td class="mob-hide">${esc(c.complaint_number || '—')}</td>
           <td>${esc(c.complaint_type)}</td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.feedback || '—')}</td>
+          <td class="mob-hide" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.feedback || '—')}</td>
           <td><span class="badge" style="background:${sc.bg};color:${sc.color}">${statusLabels[c.status] || c.status}</span></td>
-          <td style="font-size:12px">${esc(c.created_by_name || '—')}</td>
-          <td style="font-size:12px;color:var(--muted)">${fmtDate(c.created_at)}</td>
+          <td class="mob-hide" style="font-size:12px">${esc(c.created_by_name || '—')}</td>
+          <td class="mob-hide" style="font-size:12px;color:var(--muted)">${fmtDate(c.created_at)}</td>
           <td>
             <div class="flex gap4">
               <button class="btn btn-ghost btn-sm" onclick="openEditComplaintModal(${c.id})">✏️</button>
@@ -1515,7 +1531,7 @@ function renderComplaints() {
       </td></tr>` : ""}
       </tbody>
     </table>
-  </div>
+  </div></div>
 
   ${paginationHtml}
   </div>`;
@@ -1711,6 +1727,16 @@ function renderSettings() {
         </div>`).join("")}
       <button class="btn btn-ghost" style="width:100%;margin-top:12px" onclick="openAddProductModal()">➕ منتج جديد</button>
     </div>
+    ${can('users:manage') ? `<div class="card" style="padding:18px">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">💾 نسخ احتياطي</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">حمّل نسخة من الداتابيز واحفظها عندك. لو الداتا اتمسحت ارفعها تاني.</p>
+      <div class="flex gap8" style="flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="downloadBackup()">📥 تحميل نسخة احتياطية</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('restore-file-input').click()">📤 استعادة من نسخة</button>
+        <input type="file" id="restore-file-input" accept=".db" style="display:none" onchange="restoreBackup(event)">
+      </div>
+      <div id="backup-status" style="margin-top:10px;font-size:12px"></div>
+    </div>` : ''}
   </div></div>`;
 }
 
@@ -2240,6 +2266,55 @@ async function deleteUser(id, name) {
   } catch (e) { alert(e.message); }
 }
 
+// ═══════════════ BACKUP / RESTORE ═══════════════
+async function downloadBackup() {
+  const statusEl = document.getElementById('backup-status');
+  if (statusEl) statusEl.innerHTML = '<span style="color:#2563eb">جاري التحميل...</span>';
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const res = await fetch('/api/backup', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) throw new Error('فشل التحميل');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `olive-crm-backup-${new Date().toISOString().slice(0,10)}.db`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (statusEl) statusEl.innerHTML = '<span style="color:#16a34a">تم تحميل النسخة بنجاح ✅</span>';
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#dc2626">فشل: ' + e.message + '</span>';
+  }
+}
+
+async function restoreBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.name.endsWith('.db')) { alert('الملف لازم يكون بصيغة .db'); return; }
+  if (!confirm('هل تريد استعادة الداتابيز من هذا الملف؟ سيتم استبدال البيانات الحالية.')) {
+    event.target.value = '';
+    return;
+  }
+  const statusEl = document.getElementById('backup-status');
+  if (statusEl) statusEl.innerHTML = '<span style="color:#2563eb">جاري الاستعادة...</span>';
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const buffer = await file.arrayBuffer();
+    const res = await fetch('/api/restore', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/octet-stream' },
+      body: buffer
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    if (statusEl) statusEl.innerHTML = '<span style="color:#16a34a">تم الاستعادة ✅ جاري إعادة تحميل...</span>';
+    setTimeout(() => window.location.reload(), 2000);
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#dc2626">فشل: ' + e.message + '</span>';
+  }
+  event.target.value = '';
+}
+
 // ═══════════════ ADD TEMPLATE MODAL ═══════════════
 function openAddTemplateModal() {
   openModal("➕ قالب واتساب جديد", `
@@ -2628,6 +2703,8 @@ async function selectStaffChat(userId) {
     }
     renderStaffChatPanel();
     renderStaffChatList();
+    // On mobile: show chat panel full screen
+    document.querySelector('.wa-chat-container')?.classList.add('chat-open');
   } catch(e) { showToast(e.message, 'error'); }
 }
 
@@ -2642,7 +2719,7 @@ function sendStaffMessage() {
 }
 
 function renderStaffChat() {
-  return `<div class="wa-chat-container" style="height:calc(100vh - 56px)">
+  return `<div class="wa-chat-container ${state.staffChatSelectedUserId ? 'chat-open' : ''}" style="height:calc(100vh - 56px)">
     <div class="wa-chat-list" id="staff-chat-list-panel">
       <div style="padding:10px">
         <input type="text" class="search-box" placeholder="🔍 بحث..." value="${esc(state.staffChatSearch)}" oninput="onStaffChatSearch(this.value)">
@@ -2704,6 +2781,7 @@ function renderStaffChatPanel() {
   const isOnline = state.onlineUsers.some(ou => ou.id === u.id);
   panel.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:#fafafa">
+      <button class="btn btn-ghost btn-sm wa-chat-back-btn" onclick="closeMobileChat()" style="display:none;padding:4px 8px">→</button>
       <div style="position:relative">
         <div class="av" style="width:36px;height:36px;background:${u.color || '#6366f1'};font-size:13px">${esc(u.avatar_initials || '')}</div>
         ${isOnline ? '<span class="online-dot" style="bottom:1px;right:1px"></span>' : ''}

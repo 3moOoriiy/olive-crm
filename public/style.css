@@ -38,6 +38,7 @@ html, body {
   color: var(--text);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -711,9 +712,17 @@ select { cursor: pointer; }
   background: #fff;
 }
 @media (max-width: 768px) {
-  .wa-chat-container { flex-direction: column; }
-  .wa-chat-list { width: 100%; height: 40vh; border-left: none; border-bottom: 1px solid var(--border); }
-  .wa-chat-panel { height: 60vh; }
+  .wa-chat-container { flex-direction: column; position: relative; }
+  .wa-chat-list { width: 100%; height: 100%; border-left: none; }
+  .wa-chat-panel { position: absolute; inset: 0; z-index: 10; display: none; }
+  .wa-chat-container.chat-open .wa-chat-list { display: none; }
+  .wa-chat-container.chat-open .wa-chat-panel { display: flex; }
+  .wa-chat-empty { display: none !important; }
+  .wa-chat-back-btn { display: inline-flex !important; }
+  .wa-chat-container { margin: -12px; height: calc(100vh - 56px); }
+}
+@media (min-width: 769px) {
+  .wa-chat-back-btn { display: none !important; }
 }
 
 /* ═══════════════ PROGRESS BAR ═══════════════ */
@@ -893,16 +902,43 @@ select { cursor: pointer; }
 @media (max-width: 768px) {
   #sidebar { transform: translateX(100%); width: 260px; }
   #sidebar.open { transform: translateX(0); }
-  #main { margin-right: 0; }
+  #main { margin-right: 0; width: 100%; max-width: 100vw; overflow-x: hidden; }
   #menu-btn { display: inline-flex; }
   .overlay.show { display: block; }
   .desktop-only { display: none !important; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 12px; gap: 10px; }
+  .stat-icon { width: 36px; height: 36px; font-size: 18px; }
+  .stat-value { font-size: 20px; }
+  .stat-label { font-size: 11px; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .page { padding: 16px; }
-  .tabs-bar { border-radius: var(--radius); }
-  .filter-bar { flex-direction: column; }
+  .page { padding: 12px; }
+  #topbar { padding: 0 12px; gap: 8px; }
+  #topbar-title { font-size: 14px; }
+  .tabs-bar { border-radius: var(--radius); -webkit-overflow-scrolling: touch; }
+  .tab { padding: 7px 12px; font-size: 12px; }
+  .filter-bar { flex-direction: column; gap: 8px; }
   .search-box { min-width: 100%; }
+  .page-header { gap: 8px; }
+  .page-header h1 { font-size: 16px; }
+  .page-header { flex-direction: column; align-items: stretch; }
+  .page-header-stats { width: 100%; display: flex; }
+  .page-header-stats .btn { flex: 1; font-size: 11px; padding: 6px 8px; }
+  .card { border-radius: var(--radius); overflow: hidden; max-width: 100%; }
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .page { overflow-x: hidden; }
+  .tbl th, .tbl td { padding: 8px 10px; font-size: 12px; }
+  .tbl .mob-hide { display: none; }
+  .perf-stats { grid-template-columns: repeat(2, 1fr); }
+  .detail-header { gap: 10px; }
+  .detail-name { font-size: 16px; }
+  .quick-actions { gap: 6px; }
+  .qbtn { min-width: 60px; padding: 8px 6px; font-size: 10px; }
+  .qbtn-icon { font-size: 18px; }
+  .modal-box { border-radius: 12px; }
+  .modal-body { padding: 14px; }
+  .wa-notif-banner { padding: 12px 14px; border-radius: 12px; }
+  .cust-tooltip { width: 280px; }
 }
 @media (min-width: 769px) { .mobile-only { display: none !important; } }
 

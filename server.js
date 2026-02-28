@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { initDB, getDB, normalizePhone } = require('./db');
 const jwt = require('jsonwebtoken');
@@ -954,6 +955,41 @@ app.get('/api/staff-chat/unread-count', requireAuth, (req, res) => {
   const db = getDB();
   const row = db.get('SELECT COUNT(*) as cnt FROM staff_messages WHERE to_user_id = ? AND is_read = 0', [req.user.id]);
   res.json({ count: row ? row.cnt : 0 });
+});
+
+// ═══════════════ DATABASE BACKUP / RESTORE ═══════════════
+app.get('/api/backup', requireAuth, requirePermission('users:manage'), (req, res) => {
+  const db = getDB();
+  db.saveDB();
+  const dbPath = path.join(__dirname, 'data', 'olive-crm.db');
+  if (!fs.existsSync(dbPath)) {
+    return res.status(404).json({ error: 'ملف الداتابيز غير موجود' });
+  }
+  const date = new Date().toISOString().slice(0, 10);
+  res.download(dbPath, `olive-crm-backup-${date}.db`);
+});
+
+app.post('/api/restore', requireAuth, requirePermission('users:manage'), express.raw({ type: '*/*', limit: '50mb' }), (req, res) => {
+  try {
+    if (!req.body || req.body.length < 100) {
+      return res.status(400).json({ error: 'ملف الداتابيز غير صحيح' });
+    }
+    const dbPath = path.join(__dirname, 'data', 'olive-crm.db');
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+    // Save backup of current DB first
+    if (fs.existsSync(dbPath)) {
+      fs.copyFileSync(dbPath, dbPath + '.bak');
+    }
+
+    // Write uploaded DB
+    fs.writeFileSync(dbPath, req.body);
+    res.json({ success: true, message: 'تم استعادة الداتابيز. أعد تشغيل السيرفر لتفعيل التغييرات.' });
+  } catch (e) {
+    console.error('Restore error:', e);
+    res.status(500).json({ error: 'فشل استعادة الداتابيز: ' + e.message });
+  }
 });
 
 // ═══════════════ GLOBAL ERROR HANDLER ═══════════════
