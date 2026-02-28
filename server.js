@@ -452,7 +452,7 @@ app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
 
     // Store wa_id if not already set (so incoming replies match this customer)
     if (!customer.wa_id) {
-      db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [waPhone + '@c.us', customerId]);
+      db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [waPhone + '@s.whatsapp.net', customerId]);
     }
 
     const result = db.run(`
