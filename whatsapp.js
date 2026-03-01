@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -74,15 +74,20 @@ async function initWhatsApp(io) {
 
     const logger = pino({ level: 'warn' });
 
+    console.log('🔌 Fetching latest WA version...');
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`📦 WA version: ${version} (latest: ${isLatest})`);
+
     console.log('🔌 Creating WhatsApp socket...');
     waSocket = makeWASocket({
+      version,
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger),
       },
       printQRInTerminal: false,
       logger,
-      browser: ['Olive CRM', 'Chrome', '4.0.0'],
+      browser: Browsers.ubuntu('Chrome'),
       generateHighQualityLinkPreview: false,
       markOnlineOnConnect: false,
       connectTimeoutMs: 60000,
