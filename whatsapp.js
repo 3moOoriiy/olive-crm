@@ -171,20 +171,48 @@ async function initWhatsApp(io) {
 
           const db = getDB();
 
-          // Smart matching - try wa_id first, then phone variants
+          // Smart matching - try multiple strategies to find customer
           let customer = null;
 
-          // Also try old @c.us format for backward compatibility
+          // 1. Match by exact wa_id
           if (waId) {
             customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [waId]);
-            if (!customer) {
-              const oldFormatId = rawPhone + '@c.us';
-              customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [oldFormatId]);
-            }
           }
 
+          // 2. Try old @c.us format for backward compatibility
+          if (!customer) {
+            const oldFormatId = rawPhone + '@c.us';
+            customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [oldFormatId]);
+          }
+
+          // 3. Try @s.whatsapp.net format (in case wa_id was stored from send)
+          if (!customer && !jid.endsWith('@s.whatsapp.net')) {
+            const phoneFormatId = rawPhone + '@s.whatsapp.net';
+            customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [phoneFormatId]);
+          }
+
+          // 4. Try to resolve actual phone number via WhatsApp lookup
+          if (!customer && waSocket) {
+            try {
+              const [resolved] = await waSocket.onWhatsApp(jid);
+              if (resolved && resolved.jid && resolved.jid !== jid) {
+                const resolvedPhone = resolved.jid.replace(/@.+$/, '');
+                customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [resolved.jid]);
+                if (!customer) customer = findCustomerByPhone(db, resolvedPhone);
+                console.log(`🔍 Resolved ${jid} → ${resolved.jid} (matched: ${customer?.name || 'none'})`);
+              }
+            } catch(e) {}
+          }
+
+          // 5. Match by phone number variants
           if (!customer) {
             customer = findCustomerByPhone(db, rawPhone);
+          }
+
+          // 6. Last resort: match by pushName if unique
+          if (!customer && msg.pushName) {
+            const byName = db.get('SELECT * FROM customers WHERE name = ? AND wa_id IS NOT NULL', [msg.pushName]);
+            if (byName) customer = byName;
           }
 
           // Update wa_id for matched customer

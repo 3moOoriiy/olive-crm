@@ -448,10 +448,14 @@ app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
   try {
     // Normalize phone for WhatsApp API (needs international format without +)
     const waPhone = normalizePhone(customer.phone);
-    await sendMessage(waPhone, text);
+    const sendResult = await sendMessage(waPhone, text);
 
-    // Store wa_id if not already set (so incoming replies match this customer)
-    if (!customer.wa_id) {
+    // Store the ACTUAL JID from WhatsApp (may be lid format different from phone)
+    // This ensures incoming replies match this customer
+    const actualJid = sendResult?.key?.remoteJid;
+    if (actualJid) {
+      db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [actualJid, customerId]);
+    } else if (!customer.wa_id) {
       db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [waPhone + '@s.whatsapp.net', customerId]);
     }
 
