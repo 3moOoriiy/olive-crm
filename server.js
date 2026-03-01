@@ -1094,7 +1094,9 @@ async function start() {
   await initDB();
   console.log('✅ Database initialized');
 
-  initWhatsApp(io);
+  initWhatsApp(io).catch(err => {
+    console.error('WhatsApp init error:', err);
+  });
 
   server.listen(PORT, () => {
     console.log(`\n🫒 Olive CRM running at http://localhost:${PORT}`);
