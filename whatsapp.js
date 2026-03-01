@@ -67,10 +67,14 @@ async function initWhatsApp(io) {
   try {
     const authDir = path.join(__dirname, 'data', 'wa_auth');
     if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+    console.log('📂 Auth directory ready:', authDir);
 
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
-    const logger = pino({ level: 'silent' });
+    console.log('🔑 Auth state loaded. Has creds:', !!state.creds?.me);
 
+    const logger = pino({ level: 'warn' });
+
+    console.log('🔌 Creating WhatsApp socket...');
     waSocket = makeWASocket({
       auth: {
         creds: state.creds,
@@ -81,11 +85,15 @@ async function initWhatsApp(io) {
       browser: ['Olive CRM', 'Chrome', '4.0.0'],
       generateHighQualityLinkPreview: false,
       markOnlineOnConnect: false,
+      connectTimeoutMs: 60000,
+      retryRequestDelayMs: 2000,
     });
+    console.log('✅ WhatsApp socket created, waiting for connection...');
 
     waSocket.ev.on('creds.update', saveCreds);
 
     waSocket.ev.on('connection.update', async (update) => {
+      console.log('🔄 Connection update:', JSON.stringify(update).substring(0, 200));
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
@@ -231,8 +239,18 @@ async function initWhatsApp(io) {
 
     console.log('🔄 Initializing WhatsApp client...');
 
+    // Timeout detection - if no QR/connection after 30s, log warning
+    setTimeout(() => {
+      if (waStatus.initializing && !waStatus.connected && !waStatus.qrCode) {
+        console.error('⚠️ WhatsApp timeout: No QR or connection after 30 seconds');
+        console.error('⚠️ Status:', JSON.stringify(waStatus));
+        console.error('⚠️ Socket state:', waSocket?.ws?.readyState);
+      }
+    }, 30000);
+
   } catch (err) {
     console.error('WhatsApp initialization error:', err);
+    console.error('Error details:', err.stack || err);
     console.log('⚠️  WhatsApp will not be available. You can still use the CRM without it.');
     waStatus.initializing = false;
     io.emit('whatsapp:status', { initializing: false, error: 'فشل تشغيل الواتساب. تحقق من إعدادات السيرفر' });
