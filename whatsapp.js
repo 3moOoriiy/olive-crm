@@ -168,6 +168,9 @@ async function initWhatsApp(io) {
 
           const contactName = msg.pushName || rawPhone;
           const waId = jid;
+          const isLid = jid.endsWith('@lid');
+
+          console.log(`📩 Incoming: jid=${jid} pushName=${msg.pushName} isLid=${isLid}`);
 
           const db = getDB();
 
@@ -175,50 +178,69 @@ async function initWhatsApp(io) {
           let customer = null;
 
           // 1. Match by exact wa_id
-          if (waId) {
-            customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [waId]);
-          }
+          customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [waId]);
 
-          // 2. Try old @c.us format for backward compatibility
+          // 2. Match by wa_lid (secondary WhatsApp ID)
           if (!customer) {
-            const oldFormatId = rawPhone + '@c.us';
-            customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [oldFormatId]);
+            customer = db.get('SELECT * FROM customers WHERE wa_lid = ?', [waId]);
           }
 
-          // 3. Try @s.whatsapp.net format (in case wa_id was stored from send)
-          if (!customer && !jid.endsWith('@s.whatsapp.net')) {
-            const phoneFormatId = rawPhone + '@s.whatsapp.net';
-            customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [phoneFormatId]);
+          // 3. Try old @c.us and @s.whatsapp.net formats
+          if (!customer) {
+            customer = db.get('SELECT * FROM customers WHERE wa_id = ? OR wa_id = ? OR wa_lid = ? OR wa_lid = ?',
+              [rawPhone + '@c.us', rawPhone + '@s.whatsapp.net', rawPhone + '@c.us', rawPhone + '@s.whatsapp.net']);
           }
 
-          // 4. Try to resolve actual phone number via WhatsApp lookup
+          // 4. Match by phone number variants
+          if (!customer) {
+            customer = findCustomerByPhone(db, rawPhone);
+          }
+
+          // 5. Try to resolve via WhatsApp lookup
           if (!customer && waSocket) {
             try {
               const [resolved] = await waSocket.onWhatsApp(jid);
               if (resolved && resolved.jid && resolved.jid !== jid) {
                 const resolvedPhone = resolved.jid.replace(/@.+$/, '');
-                customer = db.get('SELECT * FROM customers WHERE wa_id = ?', [resolved.jid]);
+                customer = db.get('SELECT * FROM customers WHERE wa_id = ? OR wa_lid = ?', [resolved.jid, resolved.jid]);
                 if (!customer) customer = findCustomerByPhone(db, resolvedPhone);
-                console.log(`🔍 Resolved ${jid} → ${resolved.jid} (matched: ${customer?.name || 'none'})`);
+                if (customer) console.log(`🔍 Resolved ${jid} → ${resolved.jid} → ${customer.name}`);
               }
             } catch(e) {}
           }
 
-          // 5. Match by phone number variants
-          if (!customer) {
-            customer = findCustomerByPhone(db, rawPhone);
+          // 6. For LID messages: find customer we recently sent to with matching pushName
+          if (!customer && isLid && msg.pushName) {
+            customer = db.get(`
+              SELECT c.* FROM customers c
+              JOIN messages m ON m.customer_id = c.id
+              WHERE m.direction = 'out'
+                AND c.name LIKE ?
+                AND m.created_at > datetime('now', '-10 minutes')
+              ORDER BY m.created_at DESC LIMIT 1
+            `, ['%' + msg.pushName + '%']);
+            if (!customer) {
+              // Try exact name match without time limit
+              customer = db.get('SELECT * FROM customers WHERE name = ?', [msg.pushName]);
+            }
+            if (customer) console.log(`🔍 Matched LID by name: ${msg.pushName} → ${customer.name} #${customer.id}`);
           }
 
-          // 6. Last resort: match by pushName if unique
-          if (!customer && msg.pushName) {
-            const byName = db.get('SELECT * FROM customers WHERE name = ? AND wa_id IS NOT NULL', [msg.pushName]);
-            if (byName) customer = byName;
-          }
-
-          // Update wa_id for matched customer
-          if (customer && customer.wa_id !== waId) {
-            db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [waId, customer.id]);
-            console.log(`🔗 Linked wa_id ${waId} to customer #${customer.id} (${customer.name})`);
+          // Update wa_id / wa_lid for matched customer
+          if (customer) {
+            if (isLid) {
+              // Store LID in wa_lid, keep wa_id as phone-based
+              if (customer.wa_lid !== waId) {
+                db.run('UPDATE customers SET wa_lid = ? WHERE id = ?', [waId, customer.id]);
+                console.log(`🔗 Stored LID ${waId} for customer #${customer.id} (${customer.name})`);
+              }
+            } else {
+              // Regular phone JID - store in wa_id
+              if (customer.wa_id !== waId) {
+                db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [waId, customer.id]);
+                console.log(`🔗 Linked wa_id ${waId} to customer #${customer.id} (${customer.name})`);
+              }
+            }
           }
 
           let isNew = false;

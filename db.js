@@ -57,11 +57,13 @@ async function initDB() {
   try { db.run(`ALTER TABLE customers ADD COLUMN updated_by INTEGER REFERENCES users(id)`); } catch(e) {}
   try { db.run(`ALTER TABLE customers ADD COLUMN updated_by_name TEXT DEFAULT ''`); } catch(e) {}
   try { db.run(`ALTER TABLE customers ADD COLUMN wa_id TEXT DEFAULT ''`); } catch(e) {}
+  try { db.run(`ALTER TABLE customers ADD COLUMN wa_lid TEXT DEFAULT ''`); } catch(e) {}
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_customers_assigned ON customers(assigned_to)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_customers_wa_id ON customers(wa_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_customers_wa_lid ON customers(wa_lid)`);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS timeline (
