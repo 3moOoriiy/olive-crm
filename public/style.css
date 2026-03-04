@@ -2,6 +2,12 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* PWA standalone mode - safe area for notch/status bar */
+@media all and (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top); }
+  #sidebar { padding-top: env(safe-area-inset-top); }
+}
+
 :root {
   --primary: #1e4d0f;
   --primary-light: #2d6b18;
