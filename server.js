@@ -436,6 +436,16 @@ app.get('/api/whatsapp/status', requireAuth, (req, res) => {
   res.json(getStatus());
 });
 
+app.post('/api/whatsapp/reconnect', requireAuth, async (req, res) => {
+  try {
+    console.log('🔄 Manual WhatsApp reconnect requested');
+    await initWhatsApp(io);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
   const db = getDB();
   const { customerId, text } = req.body;

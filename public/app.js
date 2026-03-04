@@ -2152,6 +2152,12 @@ async function doImport() {
 }
 
 // ═══════════════ QR MODAL ═══════════════
+function retryWhatsApp() {
+  const container = document.getElementById('qr-container');
+  if (container) container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">🔄</div><p style="color:var(--muted)">جاري إعادة الاتصال...</p>`;
+  api('/whatsapp/reconnect', 'POST').catch(() => {});
+}
+
 function showQRModal() {
   openModal("📱 ربط الواتساب", `
     <div style="text-align:center;padding:20px">
@@ -2187,7 +2193,7 @@ function showQRModal() {
           <p style="color:var(--muted);font-size:11px;margin-top:8px">قد يستغرق 30-60 ثانية على السيرفر</p>
           <div style="margin-top:12px;width:50px;height:50px;border:4px solid #e5e7eb;border-top-color:#16a34a;border-radius:50%;animation:spin 1s linear infinite;margin-inline:auto"></div>`;
       } else {
-        container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">⏳</div><p style="color:var(--muted)">في انتظار رمز QR من الواتساب...</p><p style="color:var(--muted);font-size:11px;margin-top:8px">تأكد أن السيرفر شغال وبيحاول يتصل</p>`;
+        container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">⏳</div><p style="color:var(--muted)">في انتظار رمز QR من الواتساب...</p><p style="color:var(--muted);font-size:11px;margin-top:8px">تأكد أن السيرفر شغال وبيحاول يتصل</p><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="retryWhatsApp()">🔄 إعادة المحاولة</button>`;
       }
     }).catch(() => {});
   }

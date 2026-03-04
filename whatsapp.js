@@ -78,6 +78,12 @@ async function initWhatsApp(io) {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`📦 WA version: ${version} (latest: ${isLatest})`);
 
+    // Close old socket if exists (prevent duplicate listeners)
+    if (waSocket) {
+      try { waSocket.end(undefined); } catch(e) {}
+      waSocket = null;
+    }
+
     console.log('🔌 Creating WhatsApp socket...');
     waSocket = makeWASocket({
       version,
@@ -92,6 +98,7 @@ async function initWhatsApp(io) {
       markOnlineOnConnect: false,
       connectTimeoutMs: 60000,
       retryRequestDelayMs: 2000,
+      defaultQueryTimeoutMs: 30000,
     });
     console.log('✅ WhatsApp socket created, waiting for connection...');
 
@@ -109,7 +116,9 @@ async function initWhatsApp(io) {
           waStatus.connected = false;
           waStatus.authenticated = false;
           waStatus.initializing = false;
+          waStatus.qrTimestamp = Date.now();
           io.emit('whatsapp:qr', { qrDataUrl });
+          console.log(`📱 QR emitted to ${io.engine?.clientsCount || '?'} clients`);
         } catch (err) {
           console.error('QR generation error:', err);
         }
@@ -133,10 +142,13 @@ async function initWhatsApp(io) {
         console.log(`🔌 WhatsApp disconnected (code: ${statusCode}). Reconnect: ${shouldReconnect}`);
 
         if (shouldReconnect) {
+          waStatus.initializing = true;
+          io.emit('whatsapp:status', { initializing: true });
+          const delay = statusCode === 515 ? 1000 : 3000; // faster retry for stream errors
           setTimeout(() => {
             console.log('🔄 Attempting WhatsApp reconnection...');
             initWhatsApp(io);
-          }, 3000);
+          }, delay);
         } else {
           waStatus.authenticated = false;
           waStatus.qrCode = null;
