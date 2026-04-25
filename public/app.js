@@ -2558,17 +2558,39 @@ async function saveModeratorOrder() {
 
 // ═══════════════ PRINT INVOICE ═══════════════
 async function printInvoice(orderId) {
+  // Show a size picker, then defer to doPrintInvoice with the chosen size
+  openModal('🖨️ اختر حجم الطباعة', `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <button class="btn btn-primary" style="padding:24px 8px;flex-direction:column" onclick="doPrintInvoice(${orderId}, 'a4')">
+        <div style="font-size:22px;margin-bottom:4px">📄</div>
+        <div style="font-weight:700">A4</div>
+        <div style="font-size:11px;opacity:.8">210 × 297 مم</div>
+      </button>
+      <button class="btn btn-primary" style="padding:24px 8px;flex-direction:column" onclick="doPrintInvoice(${orderId}, 'a5')">
+        <div style="font-size:22px;margin-bottom:4px">📃</div>
+        <div style="font-weight:700">A5</div>
+        <div style="font-size:11px;opacity:.8">148 × 210 مم</div>
+      </button>
+      <button class="btn btn-primary" style="padding:24px 8px;flex-direction:column" onclick="doPrintInvoice(${orderId}, 'thermal')">
+        <div style="font-size:22px;margin-bottom:4px">🧾</div>
+        <div style="font-weight:700">حراري</div>
+        <div style="font-size:11px;opacity:.8">80 مم</div>
+      </button>
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>`);
+}
+
+async function doPrintInvoice(orderId, size) {
+  closeModal();
   try {
     // Find order from current page data or fetch it
     let order = null;
     let customer = null;
 
-    // Try from customer detail orders
     if (state.selectedCustomer && state.selectedCustomer.orders) {
       order = state.selectedCustomer.orders.find(o => o.id === orderId);
       customer = state.selectedCustomer;
     }
-    // Try from orders page
     if (!order && state._orders) {
       order = state._orders.find(o => o.id === orderId);
     }
@@ -2578,7 +2600,6 @@ async function printInvoice(orderId) {
       return;
     }
 
-    // If no customer data, fetch it
     if (!customer && order.customer_id) {
       try { customer = await api('/customers/' + order.customer_id); } catch(e) {}
     }
@@ -2589,6 +2610,84 @@ async function printInvoice(orderId) {
     const custAddress = customer ? (customer.address || '') : '';
     const fullAddr = [custRegion, custAddress].filter(Boolean).join(' — ');
 
+    const isThermal = size === 'thermal';
+    const isA5 = size === 'a5';
+
+    // Page geometry
+    const pageSize = isThermal ? '80mm auto' : (isA5 ? 'A5' : 'A4');
+    const bodyPad = isThermal ? '4mm' : (isA5 ? '12mm' : '18mm');
+    const bodyWidth = isThermal ? '72mm' : 'auto';
+
+    // Typography
+    const baseFont = isThermal ? '11px' : (isA5 ? '12px' : '13px');
+    const h1Font = isThermal ? '16px' : (isA5 ? '22px' : '28px');
+    const h3Font = isThermal ? '12px' : (isA5 ? '13px' : '15px');
+    const tableFont = isThermal ? '10px' : (isA5 ? '12px' : '13px');
+    const cellPad = isThermal ? '4px 4px' : (isA5 ? '6px 8px' : '10px 14px');
+
+    let invoiceHtml;
+
+    if (isThermal) {
+      // Receipt-style single column, no fancy colors/borders
+      invoiceHtml = `
+        <div class="r-header">
+          <div class="r-title">🫒 Olive CRM</div>
+          <div class="r-sub">فاتورة #${order.id}</div>
+          <div class="r-sub">${fmtDate(order.created_at)}</div>
+        </div>
+        <div class="r-divider"></div>
+        <div class="r-row"><b>العميل:</b> ${esc(custName)}</div>
+        ${custPhone ? `<div class="r-row"><b>الهاتف:</b> <span style="direction:ltr;display:inline-block">${esc(custPhone)}</span></div>` : ''}
+        ${fullAddr ? `<div class="r-row"><b>العنوان:</b> ${esc(fullAddr)}</div>` : ''}
+        ${order.address ? `<div class="r-row"><b>التوصيل:</b> ${esc(order.address)}</div>` : ''}
+        <div class="r-divider"></div>
+        <div class="r-row" style="font-weight:700">${esc(order.product_name)}</div>
+        <div class="r-row r-flex"><span>الكمية × السعر</span><span>${order.qty} × ${order.price}</span></div>
+        <div class="r-divider"></div>
+        <div class="r-row r-flex" style="font-size:13px;font-weight:800"><span>الإجمالي</span><span>${order.total} جنيه</span></div>
+        <div class="r-divider"></div>
+        <div class="r-footer">شكراً لتعاملكم معنا</div>
+      `;
+    } else {
+      invoiceHtml = `
+        <div class="invoice-header">
+          <h1>🫒 Olive CRM</h1>
+          <p>نظام إدارة علاقات العملاء</p>
+          <div class="invoice-id">فاتورة رقم: <b>#${order.id}</b> • التاريخ: <b>${fmtDate(order.created_at)}</b></div>
+        </div>
+        <div class="invoice-section">
+          <h3>👤 بيانات العميل</h3>
+          <div class="info-grid">
+            <div class="info-item"><span class="label">الاسم: </span><span class="value">${esc(custName)}</span></div>
+            <div class="info-item"><span class="label">الهاتف: </span><span class="value" style="direction:ltr;display:inline-block">${esc(custPhone)}</span></div>
+            ${fullAddr ? `<div class="info-item" style="grid-column:1/-1"><span class="label">العنوان: </span><span class="value">${esc(fullAddr)}</span></div>` : ''}
+          </div>
+        </div>
+        <div class="invoice-section">
+          <h3>📦 تفاصيل الطلب</h3>
+          <table>
+            <thead><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>${esc(order.product_name)}</td>
+                <td>${order.qty}</td>
+                <td>${order.price} جنيه</td>
+                <td style="font-weight:700">${order.total} جنيه</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="total-row"><td colspan="3">الإجمالي الكلي</td><td>${order.total} جنيه</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        ${order.address ? `<div class="invoice-section"><h3>🏠 عنوان التوصيل</h3><p style="font-size:${tableFont}">${esc(order.address)}</p></div>` : ''}
+        <div class="invoice-footer">
+          <p>شكراً لتعاملكم معنا — Olive CRM</p>
+          <p>تم الطباعة في: ${new Date().toLocaleDateString('ar-EG')} ${new Date().toLocaleTimeString('ar-EG')}</p>
+        </div>
+      `;
+    }
+
     const w = window.open('', '_blank', 'width=800,height=600');
     w.document.write(`<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -2596,76 +2695,45 @@ async function printInvoice(orderId) {
 <meta charset="UTF-8">
 <title>فاتورة #${order.id}</title>
 <style>
+  @page { size: ${pageSize}; margin: ${isThermal ? '2mm' : '8mm'}; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Cairo', 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1a1a1a; direction: rtl; }
-  .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1e4d0f; padding-bottom: 20px; }
-  .invoice-header h1 { font-size: 28px; color: #1e4d0f; margin-bottom: 4px; }
-  .invoice-header p { color: #666; font-size: 13px; }
-  .invoice-id { font-size: 14px; color: #666; margin-top: 8px; }
-  .invoice-section { margin-bottom: 24px; }
-  .invoice-section h3 { font-size: 15px; font-weight: 700; color: #1e4d0f; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
-  .info-item { font-size: 13px; }
+  body { font-family: 'Cairo', 'Segoe UI', Arial, sans-serif; padding: ${bodyPad}; color: #1a1a1a; direction: rtl; font-size: ${baseFont}; ${isThermal ? `width:${bodyWidth};` : ''} }
+
+  /* A4/A5 layout */
+  .invoice-header { text-align: center; margin-bottom: ${isA5 ? '14px' : '24px'}; border-bottom: 3px solid #1e4d0f; padding-bottom: ${isA5 ? '10px' : '16px'}; }
+  .invoice-header h1 { font-size: ${h1Font}; color: #1e4d0f; margin-bottom: 4px; }
+  .invoice-header p { color: #666; font-size: ${baseFont}; }
+  .invoice-id { font-size: ${baseFont}; color: #666; margin-top: 6px; }
+  .invoice-section { margin-bottom: ${isA5 ? '14px' : '20px'}; }
+  .invoice-section h3 { font-size: ${h3Font}; font-weight: 700; color: #1e4d0f; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+  .info-item { font-size: ${tableFont}; }
   .info-item .label { color: #666; font-weight: 600; }
   .info-item .value { font-weight: 700; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { padding: 10px 14px; text-align: right; border: 1px solid #e5e7eb; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { padding: ${cellPad}; text-align: right; border: 1px solid #e5e7eb; font-size: ${tableFont}; }
   th { background: #f0fdf4; color: #1e4d0f; font-weight: 700; }
-  .total-row { background: #f0fdf4; font-weight: 800; font-size: 15px; color: #1e4d0f; }
-  .invoice-footer { text-align: center; margin-top: 40px; padding-top: 16px; border-top: 2px solid #e5e7eb; color: #999; font-size: 11px; }
-  @media print { body { padding: 15px; } }
+  .total-row { background: #f0fdf4; font-weight: 800; font-size: ${h3Font}; color: #1e4d0f; }
+  .invoice-footer { text-align: center; margin-top: ${isA5 ? '20px' : '30px'}; padding-top: 12px; border-top: 2px solid #e5e7eb; color: #999; font-size: 10px; }
+
+  /* Thermal (receipt) layout */
+  .r-header { text-align: center; margin-bottom: 4px; }
+  .r-title { font-size: ${h1Font}; font-weight: 800; }
+  .r-sub { font-size: ${baseFont}; color: #333; }
+  .r-row { margin: 2px 0; line-height: 1.4; word-wrap: break-word; }
+  .r-flex { display: flex; justify-content: space-between; gap: 6px; }
+  .r-divider { border-top: 1px dashed #000; margin: 4px 0; }
+  .r-footer { text-align: center; margin-top: 6px; font-size: 10px; }
+
+  @media print { body { padding: ${bodyPad}; } }
 </style>
 </head>
-<body>
-  <div class="invoice-header">
-    <h1>🫒 Olive CRM</h1>
-    <p>نظام إدارة علاقات العملاء</p>
-    <div class="invoice-id">فاتورة رقم: <b>#${order.id}</b> • التاريخ: <b>${fmtDate(order.created_at)}</b></div>
-  </div>
-
-  <div class="invoice-section">
-    <h3>👤 بيانات العميل</h3>
-    <div class="info-grid">
-      <div class="info-item"><span class="label">الاسم: </span><span class="value">${esc(custName)}</span></div>
-      <div class="info-item"><span class="label">الهاتف: </span><span class="value" style="direction:ltr;display:inline-block">${esc(custPhone)}</span></div>
-      ${fullAddr ? `<div class="info-item" style="grid-column:1/-1"><span class="label">العنوان: </span><span class="value">${esc(fullAddr)}</span></div>` : ''}
-    </div>
-  </div>
-
-  <div class="invoice-section">
-    <h3>📦 تفاصيل الطلب</h3>
-    <table>
-      <thead>
-        <tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>${esc(order.product_name)}</td>
-          <td>${order.qty}</td>
-          <td>${order.price} جنيه</td>
-          <td style="font-weight:700">${order.total} جنيه</td>
-        </tr>
-      </tbody>
-      <tfoot>
-        <tr class="total-row">
-          <td colspan="3">الإجمالي الكلي</td>
-          <td>${order.total} جنيه</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  ${order.address ? `<div class="invoice-section"><h3>🏠 عنوان التوصيل</h3><p style="font-size:13px">${esc(order.address)}</p></div>` : ''}
-
-  <div class="invoice-footer">
-    <p>شكراً لتعاملكم معنا — Olive CRM</p>
-    <p>تم الطباعة في: ${new Date().toLocaleDateString('ar-EG')} ${new Date().toLocaleTimeString('ar-EG')}</p>
-  </div>
-</body>
+<body>${invoiceHtml}</body>
 </html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   } catch (e) {
+    console.error('Print invoice error:', e);
     showToast('خطأ في طباعة الفاتورة', 'error');
   }
 }
