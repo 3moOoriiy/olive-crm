@@ -860,7 +860,19 @@ app.delete('/api/complaints/:id', requireAuth, requirePermission('complaints:man
 // ═══════════════ MODERATOR ORDER ═══════════════
 app.post('/api/moderator-orders', requireAuth, requirePermission('orders:create'), (req, res) => {
   const db = getDB();
-  const { customerName, phone, phone2, address, productName, price, qty, moderatorCode, moderatorName, instapayImage } = req.body;
+  const b = req.body || {};
+  // Accept both camelCase and snake_case keys from frontend
+  const customerName = b.customerName || b.customer_name || b.name;
+  const phone = b.phone || b.customer_phone;
+  const phone2 = b.phone2 || b.customer_phone2;
+  const address = b.address || b.customer_address;
+  const productName = b.productName || b.product_name;
+  const productId = b.productId || b.product_id || 0;
+  const price = b.price;
+  const qty = b.qty;
+  const moderatorCode = b.moderatorCode || b.moderator_code;
+  const moderatorName = b.moderatorName || b.moderator_name;
+  const instapayImage = b.instapayImage || b.instapay_image;
 
   if (!customerName || !phone || !productName || !price) {
     return res.status(400).json({ error: 'الاسم والهاتف والمنتج والسعر مطلوبين' });
@@ -886,8 +898,8 @@ app.post('/api/moderator-orders', requireAuth, requirePermission('orders:create'
   const total = (parseFloat(price) || 0) * (parseInt(qty) || 1);
   const orderResult = db.run(`
     INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, moderator_code, moderator_name, instapay_image, created_by, created_at)
-    VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, ?, ?, ?, ?, datetime('now'))
-  `, [customer.id, productName, parseInt(qty) || 1, parseFloat(price), total, address || '', moderatorCode || '', moderatorName || req.user.name, instapayImage || '', req.user.id]);
+    VALUES (?, ?, ?, ?, ?, ?, 'جديد', ?, ?, ?, ?, ?, datetime('now'))
+  `, [customer.id, parseInt(productId) || 0, productName, parseInt(qty) || 1, parseFloat(price), total, address || '', moderatorCode || '', moderatorName || req.user.name, instapayImage || '', req.user.id]);
 
   db.run(`INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
     VALUES (?, 'order', ?, '🛍️', ?, ?, datetime('now'))`,

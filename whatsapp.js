@@ -209,11 +209,13 @@ async function initWhatsApp(io) {
           }
 
           // 5. Try to resolve via WhatsApp lookup
+          let resolvedRealPhone = null; // captured for new customer creation below
           if (!customer && waSocket) {
             try {
               const [resolved] = await waSocket.onWhatsApp(jid);
               if (resolved && resolved.jid && resolved.jid !== jid) {
                 const resolvedPhone = resolved.jid.replace(/@.+$/, '');
+                if (resolved.jid.endsWith('@s.whatsapp.net')) resolvedRealPhone = resolvedPhone;
                 customer = db.get('SELECT * FROM customers WHERE wa_id = ? OR wa_lid = ?', [resolved.jid, resolved.jid]);
                 if (!customer) customer = findCustomerByPhone(db, resolvedPhone);
                 if (customer) console.log(`🔍 Resolved ${jid} → ${resolved.jid} → ${customer.name}`);
@@ -258,19 +260,46 @@ async function initWhatsApp(io) {
           let isNew = false;
           if (!customer) {
             isNew = true;
-            let storePhone = rawPhone;
-            if (storePhone.startsWith('20') && storePhone.length > 10) storePhone = '0' + storePhone.slice(2);
-            const result = db.run(`
-              INSERT INTO customers (name, phone, source, status, wa_id, last_contact, created_at)
-              VALUES (?, ?, 'واتساب', 'first_attempt', ?, datetime('now'), datetime('now'))
-            `, [contactName, storePhone, waId]);
+            // Decide a real phone to store. For LID JIDs the rawPhone is a Linked-ID number,
+            // not a real phone — never store it as the customer's phone.
+            let storePhone = '';
+            if (!isLid) {
+              storePhone = rawPhone;
+              if (storePhone.startsWith('20') && storePhone.length > 10) storePhone = '0' + storePhone.slice(2);
+            } else if (resolvedRealPhone) {
+              storePhone = resolvedRealPhone;
+              if (storePhone.startsWith('20') && storePhone.length > 10) storePhone = '0' + storePhone.slice(2);
+            }
+            // If still no real phone, use a unique placeholder so the UNIQUE phone constraint
+            // doesn't collide across multiple LID-only customers.
+            if (!storePhone) storePhone = 'lid:' + rawPhone;
 
-            customer = db.get('SELECT * FROM customers WHERE id = ?', [result.lastInsertRowid]);
+            // Avoid race / collision on UNIQUE phone — if a customer with this phone now exists,
+            // attach to it instead of failing.
+            const collide = db.get('SELECT * FROM customers WHERE phone = ?', [storePhone]);
+            if (collide) {
+              customer = collide;
+              isNew = false;
+              if (isLid && customer.wa_lid !== waId) {
+                db.run('UPDATE customers SET wa_lid = ? WHERE id = ?', [waId, customer.id]);
+              } else if (!isLid && customer.wa_id !== waId) {
+                db.run('UPDATE customers SET wa_id = ? WHERE id = ?', [waId, customer.id]);
+              }
+            } else {
+              const waIdCol = isLid ? '' : waId;
+              const waLidCol = isLid ? waId : '';
+              const result = db.run(`
+                INSERT INTO customers (name, phone, source, status, wa_id, wa_lid, last_contact, created_at)
+                VALUES (?, ?, 'واتساب', 'first_attempt', ?, ?, datetime('now'), datetime('now'))
+              `, [contactName, storePhone, waIdCol, waLidCol]);
 
-            db.run(`
-              INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
-              VALUES (?, 'created', 'تم إنشاء العميل تلقائياً من رسالة واتساب', '📱', 'النظام', datetime('now'))
-            `, [customer.id]);
+              customer = db.get('SELECT * FROM customers WHERE id = ?', [result.lastInsertRowid]);
+
+              db.run(`
+                INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
+                VALUES (?, 'created', 'تم إنشاء العميل تلقائياً من رسالة واتساب', '📱', 'النظام', datetime('now'))
+              `, [customer.id]);
+            }
 
             console.log(`📱 New customer auto-created: ${contactName} (${storePhone}) wa_id=${waId}`);
           }
@@ -324,6 +353,15 @@ async function initWhatsApp(io) {
   }
 }
 
+// Wraps a promise with a hard timeout so a stuck WhatsApp call can't hang forever
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`انتهت مهلة ${label || 'الواتساب'} (${ms}ms)`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function sendMessage(phone, text) {
   if (!waSocket || !waStatus.connected) {
     throw new Error('واتساب غير متصل. اربط الواتساب من الإعدادات أولاً');
@@ -337,16 +375,17 @@ async function sendMessage(phone, text) {
   const jid = cleanPhone + '@s.whatsapp.net';
 
   try {
-    const [result] = await waSocket.onWhatsApp(jid);
+    const checkResult = await withTimeout(waSocket.onWhatsApp(jid), 15000, 'التحقق من الرقم');
+    const result = Array.isArray(checkResult) ? checkResult[0] : checkResult;
     if (!result || !result.exists) {
       throw new Error('هذا الرقم غير مسجل على واتساب');
     }
-    const sent = await waSocket.sendMessage(jid, { text });
+    const sent = await withTimeout(waSocket.sendMessage(jid, { text }), 20000, 'إرسال الرسالة');
     return sent;
   } catch (err) {
     console.error('Send message error:', err);
     const msg = err.message || String(err);
-    if (msg.includes('غير مسجل') || msg.includes('غير متصل')) throw err;
+    if (msg.includes('غير مسجل') || msg.includes('غير متصل') || msg.includes('انتهت مهلة')) throw err;
     throw new Error('فشل إرسال الرسالة. تأكد من اتصال الواتساب');
   }
 }
