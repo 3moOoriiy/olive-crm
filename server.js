@@ -456,9 +456,22 @@ app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
   if (!customer) return res.status(404).json({ error: 'العميل غير موجود' });
 
   try {
-    // Normalize phone for WhatsApp API (needs international format without +)
-    const waPhone = normalizePhone(customer.phone);
-    const sendResult = await sendMessage(waPhone, text);
+    // Pick the best target for the WhatsApp API:
+    // 1. existing wa_id (real @s.whatsapp.net JID we recorded)
+    // 2. wa_lid (anonymous LID — only way to reach a customer that messaged us via LID)
+    // 3. fall back to the normalized phone
+    let waTarget;
+    const phoneIsPlaceholder = (customer.phone || '').startsWith('lid:');
+    if (customer.wa_id && customer.wa_id.includes('@')) {
+      waTarget = customer.wa_id;
+    } else if (customer.wa_lid && customer.wa_lid.includes('@')) {
+      waTarget = customer.wa_lid;
+    } else if (!phoneIsPlaceholder) {
+      waTarget = normalizePhone(customer.phone);
+    } else {
+      return res.status(400).json({ error: 'لا يوجد رقم واتساب صالح لهذا العميل' });
+    }
+    const sendResult = await sendMessage(waTarget, text);
 
     // Store the ACTUAL JID from WhatsApp (may be lid format different from phone)
     // This ensures incoming replies match this customer

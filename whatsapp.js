@@ -362,30 +362,43 @@ function withTimeout(promise, ms, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function sendMessage(phone, text) {
+// Accepts either a phone (string of digits/with prefix) or a full JID like
+// "1234@s.whatsapp.net" / "1234@lid". For LID JIDs we send directly without
+// onWhatsApp() check (it's an opaque ID, not a phone number).
+async function sendMessage(phoneOrJid, text) {
   if (!waSocket || !waStatus.connected) {
     throw new Error('واتساب غير متصل. اربط الواتساب من الإعدادات أولاً');
   }
 
-  // Normalize phone to international format without +
-  let cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.startsWith('0')) cleanPhone = '20' + cleanPhone.slice(1);
-  if (!cleanPhone.startsWith('20')) cleanPhone = '20' + cleanPhone;
+  let jid;
+  let isLidJid = false;
+  const input = String(phoneOrJid || '').trim();
 
-  const jid = cleanPhone + '@s.whatsapp.net';
+  if (input.includes('@')) {
+    jid = input;
+    isLidJid = jid.endsWith('@lid');
+  } else {
+    let cleanPhone = input.replace(/\D/g, '');
+    if (!cleanPhone) throw new Error('رقم غير صالح');
+    if (cleanPhone.startsWith('0')) cleanPhone = '20' + cleanPhone.slice(1);
+    if (!cleanPhone.startsWith('20')) cleanPhone = '20' + cleanPhone;
+    jid = cleanPhone + '@s.whatsapp.net';
+  }
 
   try {
-    const checkResult = await withTimeout(waSocket.onWhatsApp(jid), 15000, 'التحقق من الرقم');
-    const result = Array.isArray(checkResult) ? checkResult[0] : checkResult;
-    if (!result || !result.exists) {
-      throw new Error('هذا الرقم غير مسجل على واتساب');
+    if (!isLidJid) {
+      const checkResult = await withTimeout(waSocket.onWhatsApp(jid), 15000, 'التحقق من الرقم');
+      const result = Array.isArray(checkResult) ? checkResult[0] : checkResult;
+      if (!result || !result.exists) {
+        throw new Error('هذا الرقم غير مسجل على واتساب');
+      }
     }
     const sent = await withTimeout(waSocket.sendMessage(jid, { text }), 20000, 'إرسال الرسالة');
     return sent;
   } catch (err) {
     console.error('Send message error:', err);
     const msg = err.message || String(err);
-    if (msg.includes('غير مسجل') || msg.includes('غير متصل') || msg.includes('انتهت مهلة')) throw err;
+    if (msg.includes('غير مسجل') || msg.includes('غير متصل') || msg.includes('انتهت مهلة') || msg.includes('غير صالح')) throw err;
     throw new Error('فشل إرسال الرسالة. تأكد من اتصال الواتساب');
   }
 }
