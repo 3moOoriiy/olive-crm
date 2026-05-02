@@ -833,7 +833,15 @@ app.get('/api/complaints', requireAuth, requirePermission('complaints:manage'), 
 
 app.post('/api/complaints', requireAuth, requirePermission('complaints:manage'), (req, res) => {
   const db = getDB();
-  const { customerId, shipmentNumber, complaintNumber, complaintType, feedback, status } = req.body;
+  const b = req.body || {};
+  // Accept both camelCase and snake_case keys from frontend
+  const customerId = b.customerId || b.customer_id;
+  const shipmentNumber = b.shipmentNumber || b.shipment_number;
+  const complaintNumber = b.complaintNumber || b.complaint_number;
+  const complaintType = b.complaintType || b.complaint_type;
+  const feedback = b.feedback;
+  const status = b.status;
+
   if (!complaintType) return res.status(400).json({ error: 'نوع الشكوى مطلوب' });
 
   const result = db.run(`
@@ -847,7 +855,12 @@ app.post('/api/complaints', requireAuth, requirePermission('complaints:manage'),
 
 app.put('/api/complaints/:id', requireAuth, requirePermission('complaints:manage'), (req, res) => {
   const db = getDB();
-  const { shipmentNumber, complaintNumber, complaintType, feedback, status } = req.body;
+  const b = req.body || {};
+  const shipmentNumber = b.shipmentNumber || b.shipment_number;
+  const complaintNumber = b.complaintNumber || b.complaint_number;
+  const complaintType = b.complaintType || b.complaint_type;
+  const feedback = b.feedback;
+  const status = b.status;
   const id = req.params.id;
   const existing = db.get('SELECT * FROM complaints WHERE id = ?', [id]);
   if (!existing) return res.status(404).json({ error: 'الشكوى غير موجودة' });
