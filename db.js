@@ -177,6 +177,9 @@ async function initDB() {
   // Migrate old role names: agent → call_center (idempotent)
   try { db.run("UPDATE users SET role = 'call_center' WHERE role = 'agent'"); } catch(e) {}
 
+  // Per-user custom permissions (JSON-encoded array; null = use role defaults)
+  try { db.run(`ALTER TABLE users ADD COLUMN permissions TEXT`); } catch(e) {}
+
   // One-time cleanup: merge duplicate customers with same normalized phone
   mergeDuplicateCustomers();
   // ✅ Seed default admin (first run only)

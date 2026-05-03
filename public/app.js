@@ -79,6 +79,31 @@ const ROLE_LABELS = {
   complaints: "مسئول شكاوي", call_center: "كول سنتر", moderator: "مودوريتور", agent: "موظف",
   warehouse_manager: "مدير مخزن", warehouse_supervisor: "مسئول مخزن", warehouse_worker: "عامل مخزن"
 };
+const PERMISSION_LABELS = {
+  'view:dashboard':     'لوحة التحكم',
+  'view:customers':     'العملاء',
+  'view:followups':     'المتابعات',
+  'view:orders':        'الطلبات',
+  'view:whatsapp':      'واتساب',
+  'view:complaints':    'الشكاوي',
+  'view:performance':   'الأداء',
+  'view:reports':       'التقارير',
+  'view:settings':      'الإعدادات',
+  'view:moderator_form':'فورم الطلبات',
+  'view:staff_chat':    'محادثات الموظفين',
+  'view:inventory':     'المخزن',
+  'customers:manage':   'إدارة العملاء',
+  'customers:delete_all':'حذف عميل (خطر)',
+  'orders:create':      'إضافة طلب',
+  'orders:manage':      'إدارة الطلبات',
+  'calls:log':          'تسجيل المكالمات',
+  'whatsapp:send':      'إرسال واتساب',
+  'complaints:manage':  'إدارة الشكاوي',
+  'users:manage':       'إدارة المستخدمين',
+  'users:delete':       'حذف مستخدم',
+  'products:manage':    'إدارة المنتجات',
+  'templates:manage':   'إدارة القوالب',
+};
 const PERMS = {
   moderator:   ['view:dashboard', 'view:moderator_form', 'view:staff_chat', 'orders:create'],
   call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
@@ -93,6 +118,12 @@ const PERMS = {
 function can(perm) {
   const u = state.currentUser;
   if (!u) return false;
+  if (u.permissions) {
+    try {
+      const custom = typeof u.permissions === 'string' ? JSON.parse(u.permissions) : u.permissions;
+      if (Array.isArray(custom)) return custom.includes(perm);
+    } catch (_) {}
+  }
   const perms = PERMS[u.role];
   return perms ? perms.includes(perm) : false;
 }
@@ -2287,6 +2318,18 @@ async function saveNewUser() {
 // ═══════════════ EDIT USER MODAL ═══════════════
 function openEditUserModal(id) {
   const u = state.users.find(x => x.id === id); if (!u) return;
+  let custom = null;
+  if (u.permissions) {
+    try { custom = typeof u.permissions === 'string' ? JSON.parse(u.permissions) : u.permissions; } catch(_) {}
+  }
+  const usingCustom = Array.isArray(custom);
+  const effective = usingCustom ? custom : (PERMS[u.role] || []);
+  const permsHtml = Object.entries(PERMISSION_LABELS).map(([key, label]) =>
+    `<label style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f9fafb;border-radius:6px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="eu-perm" value="${key}" ${effective.includes(key) ? 'checked' : ''}>
+      <span>${label}</span>
+    </label>`
+  ).join('');
   openModal("✏️ تعديل مستخدم", `
     <div class="form-group"><label>الاسم</label><input id="eu-name" type="text" value="${esc(u.name)}"></div>
     <div class="form-group"><label>البريد</label><input id="eu-email" type="email" value="${esc(u.email)}"></div>
@@ -2301,8 +2344,22 @@ function openEditUserModal(id) {
       <option value="warehouse_manager"    ${u.role === 'warehouse_manager'    ? 'selected' : ''}>🏭 مدير مخزن</option>
       <option value="warehouse_supervisor" ${u.role === 'warehouse_supervisor' ? 'selected' : ''}>🏭 مسئول مخزن</option>
       <option value="warehouse_worker"     ${u.role === 'warehouse_worker'     ? 'selected' : ''}>🏭 عامل مخزن</option>
-    </select></div>`,
+    </select></div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="eu-use-defaults" ${!usingCustom ? 'checked' : ''} onchange="document.getElementById('eu-perms-list').style.opacity=this.checked?'0.5':'1';document.querySelectorAll('.eu-perm').forEach(c=>c.disabled=this.checked)">
+        <span>استخدام الصلاحيات الافتراضية للدور</span>
+      </label>
+    </div>
+    <div class="form-group">
+      <label>الصلاحيات (تخصيص لكل مستخدم)</label>
+      <div id="eu-perms-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:280px;overflow-y:auto;padding:8px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;opacity:${!usingCustom ? '0.5' : '1'}">
+        ${permsHtml}
+      </div>
+      <p style="font-size:11px;color:#6b7280;margin-top:4px">شيل علامة "استخدام الافتراضية" عشان تخصص صلاحيات لهذا المستخدم</p>
+    </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveEditUser(${u.id})">💾 حفظ</button>`);
+  if (!usingCustom) document.querySelectorAll('.eu-perm').forEach(c => c.disabled = true);
 }
 
 async function saveEditUser(id) {
@@ -2314,6 +2371,12 @@ async function saveEditUser(id) {
     };
     const pass = document.getElementById("eu-pass")?.value;
     if (pass) body.password = pass;
+    const useDefaults = document.getElementById("eu-use-defaults")?.checked;
+    if (useDefaults) {
+      body.permissions = null;
+    } else {
+      body.permissions = [...document.querySelectorAll('.eu-perm:checked')].map(c => c.value);
+    }
     await api('/users/' + id, { method: 'PUT', body });
     closeModal();
     showToast('تم تحديث المستخدم');

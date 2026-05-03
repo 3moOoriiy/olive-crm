@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Required for inventory's Prisma raw SQL queries (CAST/SUM return BigInt)
+BigInt.prototype.toJSON = function () { return Number(this); };
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -750,7 +752,7 @@ app.get('/api/reports', requireAuth, (req, res) => {
 // ═══════════════ SETTINGS / ADMIN ═══════════════
 app.get('/api/users', requireAuth, (req, res) => {
   const db = getDB();
-  const users = db.all('SELECT id, name, email, role, avatar_initials, color, is_active FROM users');
+  const users = db.all('SELECT id, name, email, role, avatar_initials, color, is_active, permissions FROM users');
   res.json(users);
 });
 
@@ -778,7 +780,7 @@ app.post('/api/users', requireAuth, requirePermission('users:manage'), (req, res
 
 app.put('/api/users/:id', requireAuth, requirePermission('users:manage'), (req, res) => {
   const db = getDB();
-  const { name, email, role, password } = req.body;
+  const { name, email, role, password, permissions } = req.body;
   const id = req.params.id;
   const user = db.get('SELECT * FROM users WHERE id = ?', [id]);
   if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
@@ -792,6 +794,11 @@ app.put('/api/users/:id', requireAuth, requirePermission('users:manage'), (req, 
     name || user.name, email || user.email, role || user.role, id
   ]);
 
+  if (permissions !== undefined) {
+    const permsValue = Array.isArray(permissions) ? JSON.stringify(permissions) : null;
+    db.run('UPDATE users SET permissions = ? WHERE id = ?', [permsValue, id]);
+  }
+
   if (password) {
     const hash = bcrypt.hashSync(password, 10);
     db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
@@ -800,7 +807,7 @@ app.put('/api/users/:id', requireAuth, requirePermission('users:manage'), (req, 
   const initials = (name || user.name).substring(0, 2);
   db.run('UPDATE users SET avatar_initials = ? WHERE id = ?', [initials, id]);
 
-  const updated = db.get('SELECT id, name, email, role, avatar_initials, color, is_active FROM users WHERE id = ?', [id]);
+  const updated = db.get('SELECT id, name, email, role, avatar_initials, color, is_active, permissions FROM users WHERE id = ?', [id]);
   res.json(updated);
 });
 

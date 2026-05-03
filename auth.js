@@ -94,7 +94,7 @@ function requireAuth(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const db = getDB();
-    const user = db.get('SELECT id, name, email, role, avatar_initials, color FROM users WHERE id = ? AND is_active = 1', [decoded.userId]);
+    const user = db.get('SELECT id, name, email, role, avatar_initials, color, permissions FROM users WHERE id = ? AND is_active = 1', [decoded.userId]);
     if (!user) {
       return res.status(401).json({ error: 'المستخدم غير موجود' });
     }
@@ -133,14 +133,24 @@ function canAccess(role, permission) {
   return perms.includes(permission);
 }
 
+function userCan(user, permission) {
+  if (!user) return false;
+  if (user.permissions) {
+    try {
+      const custom = typeof user.permissions === 'string' ? JSON.parse(user.permissions) : user.permissions;
+      if (Array.isArray(custom)) return custom.includes(permission);
+    } catch (_) { /* fall through */ }
+  }
+  return canAccess(user.role, permission);
+}
+
 function requirePermission(...permissions) {
   return (req, res, next) => {
-    const role = req.user?.role;
-    if (!role) return res.status(401).json({ error: 'غير مصرح' });
-    const hasAny = permissions.some(p => canAccess(role, p));
+    if (!req.user) return res.status(401).json({ error: 'غير مصرح' });
+    const hasAny = permissions.some(p => userCan(req.user, p));
     if (!hasAny) return res.status(403).json({ error: 'غير مصرح لك بهذا الإجراء' });
     next();
   };
 }
 
-module.exports = { loginHandler, requireAuth, requireRole, requirePermission, canAccess, generateToken, PERMISSIONS, JWT_SECRET };
+module.exports = { loginHandler, requireAuth, requireRole, requirePermission, canAccess, userCan, generateToken, PERMISSIONS, JWT_SECRET };

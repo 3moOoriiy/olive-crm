@@ -52,13 +52,13 @@ export default function Sidebar({ isOpen, onClose, overlayOnly = false }) {
 
       <aside
         className={`
-          fixed top-0 right-0 z-50 h-full w-64 bg-[#1e293b] text-white
+          fixed top-0 right-0 z-50 h-full w-64 bg-gradient-to-b from-[#0f2a06] via-[#143509] to-[#1a4a0d] text-white
           flex flex-col transition-transform duration-300 ease-in-out
           ${asideCls}
         `}
       >
         {/* Logo / Brand */}
-        <div className="flex items-center justify-between px-5 py-5 border-b border-slate-700">
+        <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
           <h1 className="text-lg font-bold tracking-wide">
             نظام المخزون
           </h1>
@@ -89,8 +89,8 @@ export default function Sidebar({ isOpen, onClose, overlayOnly = false }) {
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                         isActive
-                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                          : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                          ? 'bg-[#22c55e] text-white shadow-lg shadow-green-700/30'
+                          : 'text-green-100 hover:bg-white/10 hover:text-white'
                       }`
                     }
                   >
@@ -104,7 +104,7 @@ export default function Sidebar({ isOpen, onClose, overlayOnly = false }) {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-slate-700 px-5 py-4">
+        <div className="border-t border-white/10 px-5 py-4">
           <p className="text-xs text-slate-500 text-center">
             تم التطوير بواسطة AmrAlaa
           </p>
