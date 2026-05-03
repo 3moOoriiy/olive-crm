@@ -3,8 +3,11 @@ services:
     name: olive-crm
     runtime: node
     buildCommand: |
-      apt-get update && apt-get install -y chromium && npm install
-    startCommand: node server.js
+      apt-get update && apt-get install -y chromium && \
+      npm install && \
+      cd inventory-system/backend && npm install && npx prisma generate && \
+      cd ../frontend && npm install && npm run build
+    startCommand: cd inventory-system/backend && npx prisma migrate deploy && cd ../.. && node server.js
     envVars:
       - key: PUPPETEER_EXECUTABLE_PATH
         value: /usr/bin/chromium
@@ -14,6 +17,13 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      # Inventory system env vars (persisted on disk)
+      - key: DATABASE_URL
+        value: file:/opt/render/project/src/data/inventory.db
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/data/inventory-uploads
     disk:
       name: olive-data
       mountPath: /opt/render/project/src/data
