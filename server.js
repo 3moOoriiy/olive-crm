@@ -69,7 +69,7 @@ const CRM_TO_INV_ROLE = {
   complaints: 'VIEWER',
 };
 
-app.post('/api/inventory/sso', requireAuth, async (req, res) => {
+app.post('/api/inventory/sso', requireAuth, requirePermission('view:inventory'), async (req, res) => {
   try {
     const crmUser = req.user;
     const invRole = CRM_TO_INV_ROLE[crmUser.role] || 'VIEWER';

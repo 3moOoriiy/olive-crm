@@ -459,7 +459,7 @@ function renderSidebar() {
     { key: "complaints",   label: "الشكاوي",      icon: "📋", perm: "view:complaints" },
     { key: "performance",  label: "الأداء",       icon: "🏆", perm: "view:performance" },
     { key: "reports",      label: "التقارير",     icon: "📈", perm: "view:reports" },
-    { key: "inventory",    label: "المخزن",       icon: "🏭" },
+    { key: "inventory",    label: "المخزن",       icon: "🏭", perm: "view:inventory" },
     { key: "settings",     label: "الإعدادات",    icon: "⚙️", perm: "view:settings" },
   ];
   const links = allLinks.filter(l => !l.perm || can(l.perm));
