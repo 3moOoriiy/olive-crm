@@ -1,0 +1,76 @@
+{
+  "name": "inventory-system",
+  "version": "1.0.0",
+  "description": "نظام إدارة المخزون والمبيعات",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:frontend": "cd frontend && npm run build",
+    "dist": "npm run build:frontend && electron-builder --win",
+    "pack": "npm run build:frontend && electron-builder --win --dir"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.inventory.system",
+    "productName": "نظام المخزون",
+    "directories": {
+      "output": "release"
+    },
+    "asar": false,
+    "files": [
+      "electron-main.js",
+      "frontend/dist/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "backend/src",
+        "to": "resources/app/backend/src"
+      },
+      {
+        "from": "backend/node_modules",
+        "to": "resources/app/backend/node_modules"
+      },
+      {
+        "from": "backend/prisma/schema.prisma",
+        "to": "resources/app/backend/prisma/schema.prisma"
+      },
+      {
+        "from": "backend/prisma/migrations",
+        "to": "resources/app/backend/prisma/migrations"
+      },
+      {
+        "from": "backend/package.json",
+        "to": "resources/app/backend/package.json"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "backend/prisma/clean.db",
+        "to": "seed.db"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "unicode": true
+    }
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
+  }
+}

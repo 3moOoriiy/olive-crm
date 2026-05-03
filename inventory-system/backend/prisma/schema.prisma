@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── المستخدمين ───
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role        String   @default("VIEWER")
+  permissions String?
+  branchId    String?
+  isActive    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch          Branch?          @relation(fields: [branchId], references: [id])
+  invoices        Invoice[]
+  activityLogs    ActivityLog[]
+  inventoryCounts InventoryCount[]
+  transfersCreated  StockTransfer[]  @relation("TransferCreatedBy")
+  transfersApproved StockTransfer[]  @relation("TransferApprovedBy")
+  refreshTokens   RefreshToken[]
+  movements       InventoryMovement[]
+
+  @@map("users")
+}
+
+// ─── الفروع ───
+model Branch {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  branchProducts   BranchProduct[]
+  invoices         Invoice[]
+  movements        InventoryMovement[]
+  transfersFrom    StockTransfer[]    @relation("TransferFrom")
+  transfersTo      StockTransfer[]    @relation("TransferTo")
+  inventoryCounts  InventoryCount[]
+
+  @@map("branches")
+}
+
+// ─── التصنيفات ───
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ─── المنتجات ───
+model Product {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  sku           String   @unique
+  barcode       String?  @unique
+  qrCode        String?
+  price         Float
+  cost          Float    @default(0)
+  image         String?
+  categoryId    String?
+  unit          String   @default("piece")
+  alertQuantity Int      @default(10)
+  taxRate       Float    @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category        Category?          @relation(fields: [categoryId], references: [id])
+  branchProducts  BranchProduct[]
+  invoiceItems    InvoiceItem[]
+  movements       InventoryMovement[]
+  transferItems   StockTransferItem[]
+  countItems      InventoryCountItem[]
+  components      ProductComponent[] @relation("ProductComponents")
+  componentOf     ProductComponent[] @relation("ComponentOf")
+
+  @@map("products")
+}
+
+// ─── مكونات المنتج (BOM) ───
+model ProductComponent {
+  id          String @id @default(uuid())
+  productId   String
+  componentId String
+  quantity    Float  @default(1)
+
+  product   Product @relation("ProductComponents", fields: [productId], references: [id], onDelete: Cascade)
+  component Product @relation("ComponentOf", fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, componentId])
+  @@map("product_components")
+}
+
+// ─── مخزون الفرع ───
+model BranchProduct {
+  id        String   @id @default(uuid())
+  branchId  String
+  productId String
+  quantity  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@map("branch_products")
+}
+
+// ─── العملاء ───
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices Invoice[]
+
+  @@map("customers")
+}
+
+// ─── الفواتير ───
+model Invoice {
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
+  type          String   @default("SALE")
+  branchId      String
+  userId        String
+  customerId    String?
+  subtotal      Float
+  taxAmount     Float    @default(0)
+  discount      Float    @default(0)
+  total         Float
+  paymentMethod String   @default("CASH")
+  status        String   @default("COMPLETED")
+  notes         String?
+  refundOfId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  refundOf Invoice?  @relation("InvoiceRefund", fields: [refundOfId], references: [id])
+  refunds  Invoice[] @relation("InvoiceRefund")
+  items    InvoiceItem[]
+
+  @@map("invoices")
+}
+
+// ─── عناصر الفاتورة ───
+model InvoiceItem {
+  id        String @id @default(uuid())
+  invoiceId String
+  productId String
+  quantity  Int
+  price     Float
+  discount  Float  @default(0)
+  tax       Float  @default(0)
+  total     Float
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("invoice_items")
+}
+
+// ─── حركة المخزون ───
+model InventoryMovement {
+  id        String   @id @default(uuid())
+  productId String
+  branchId  String
+  type      String
+  quantity  Int
+  reference String?
+  notes     String?
+  userId    String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("inventory_movements")
+}
+
+// ─── تحويل المخزون ───
+model StockTransfer {
+  id           String   @id @default(uuid())
+  fromBranchId String
+  toBranchId   String
+  status       String   @default("PENDING")
+  userId       String
+  approvedById String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  fromBranch Branch @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranch   Branch @relation("TransferTo", fields: [toBranchId], references: [id])
+  createdBy  User   @relation("TransferCreatedBy", fields: [userId], references: [id])
+  approvedBy User?  @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+  items      StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id         String @id @default(uuid())
+  transferId String
+  productId  String
+  quantity   Int
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id])
+
+  @@map("stock_transfer_items")
+}
+
+// ─── الجرد ───
+model InventoryCount {
+  id        String   @id @default(uuid())
+  branchId  String
+  userId    String
+  status    String   @default("DRAFT")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch Branch              @relation(fields: [branchId], references: [id])
+  user   User                @relation(fields: [userId], references: [id])
+  items  InventoryCountItem[]
+
+  @@map("inventory_counts")
+}
+
+model InventoryCountItem {
+  id             String @id @default(uuid())
+  countId        String
+  productId      String
+  systemQuantity Int
+  actualQuantity Int
+  difference     Int
+
+  count   InventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+
+  @@map("inventory_count_items")
+}
+
+// ─── سجل النشاطات ───
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+// ─── Refresh Tokens ───
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}

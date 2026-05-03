@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(curl -s http://localhost:5000/api/health)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //IM electron.exe)",
+      "Bash(curl -s http://localhost:5050/)",
+      "Bash(npx electron-builder:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(explorer \"D:\\\\inventory-system\\\\release\")",
+      "Bash(taskkill //F //IM \"نظام المخزون.exe\")",
+      "Bash(rm -f prisma/clean.db)",
+      "Bash(DATABASE_URL=\"file:./prisma/clean.db\" npx prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"file:./prisma/clean.db\" node -e \":*)",
+      "Bash(npx kill-port:*)",
+      "Bash(npx prisma:*)",
+      "Bash(DATABASE_URL=\"file:./clean.db\" npx prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"file:./clean.db\" node -e \":*)",
+      "Bash(npm ls:*)",
+      "Bash(taskkill /F /IM \"نظام المخزون.exe\")",
+      "Bash(taskkill /F /IM \"electron.exe\")",
+      "Bash(powershell -Command 'Get-Process | Where-Object { $_.ProcessName -eq '\\\\''نظام المخزون'\\\\'' -or $_.ProcessName -eq '\\\\''electron'\\\\'' } | Stop-Process -Force')"
+    ]
+  }
+}

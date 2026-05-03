@@ -5,3 +5,11 @@ data/
 .DS_Store
 Thumbs.db
 .cache/
+
+# Inventory system: exclude huge / sensitive
+inventory-system/release/
+inventory-system/electron-main.js
+inventory-system/**/uploads/
+inventory-system/**/logs/
+inventory-system/**/*.db
+inventory-system/**/*.db-journal

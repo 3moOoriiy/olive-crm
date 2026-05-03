@@ -24,6 +24,19 @@ const io = new Server(server);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public'), { etag: false, maxAge: 0 }));
 
+// ═══════════════ INVENTORY SYSTEM (mounted at /inventory) ═══════════════
+require('dotenv').config({ path: path.join(__dirname, 'inventory-system/backend/.env') });
+const inventoryDist = path.join(__dirname, 'inventory-system/frontend/dist');
+app.use('/inventory', express.static(inventoryDist, { etag: false, maxAge: 0 }));
+app.use('/inventory', (req, res, next) => {
+  if (req.method === 'GET' && req.accepts('html') && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+    return res.sendFile(path.join(inventoryDist, 'index.html'));
+  }
+  next();
+});
+const inventoryApp = require('./inventory-system/backend/src/app');
+app.use('/inventory', inventoryApp);
+
 // ═══════════════ HELPERS ═══════════════
 function checkAgentOwnership(req, res, customerId) {
   if (['moderator', 'call_center'].includes(req.user.role)) {
@@ -40,6 +53,56 @@ app.post('/api/auth/login', loginHandler);
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+// ═══════════════ INVENTORY SSO ═══════════════
+const inventoryPrisma = require('./inventory-system/backend/src/config/database');
+const inventoryConfig = require('./inventory-system/backend/src/config');
+const { v4: uuidv4 } = require('./inventory-system/backend/node_modules/uuid');
+
+const CRM_TO_INV_ROLE = {
+  admin: 'ADMIN',
+  operations: 'ADMIN',
+  supervisor: 'BRANCH_MANAGER',
+  call_center: 'CASHIER',
+  moderator: 'CASHIER',
+  complaints: 'VIEWER',
+};
+
+app.post('/api/inventory/sso', requireAuth, async (req, res) => {
+  try {
+    const crmUser = req.user;
+    const invRole = CRM_TO_INV_ROLE[crmUser.role] || 'VIEWER';
+
+    let invUser = await inventoryPrisma.user.findUnique({ where: { email: crmUser.email } });
+    if (!invUser) {
+      const placeholderHash = await bcrypt.hash(uuidv4(), 4);
+      invUser = await inventoryPrisma.user.create({
+        data: {
+          email: crmUser.email,
+          name: crmUser.name,
+          password: placeholderHash,
+          role: invRole,
+          isActive: true,
+        },
+      });
+    } else if (invUser.role !== invRole && !invUser.permissions) {
+      invUser = await inventoryPrisma.user.update({ where: { id: invUser.id }, data: { role: invRole } });
+    }
+
+    const accessToken = jwt.sign({ userId: invUser.id }, inventoryConfig.jwt.secret, { expiresIn: inventoryConfig.jwt.expiresIn });
+    const refreshToken = jwt.sign({ userId: invUser.id, tokenId: uuidv4() }, inventoryConfig.jwt.refreshSecret, { expiresIn: inventoryConfig.jwt.refreshExpiresIn });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    await inventoryPrisma.refreshToken.create({ data: { token: refreshToken, userId: invUser.id, expiresAt } });
+
+    const { password: _, ...userData } = invUser;
+    res.json({ user: userData, accessToken, refreshToken });
+  } catch (err) {
+    console.error('Inventory SSO error:', err);
+    res.status(500).json({ error: 'فشل تسجيل الدخول للمخزن' });
+  }
 });
 
 // ═══════════════ CUSTOMERS ═══════════════

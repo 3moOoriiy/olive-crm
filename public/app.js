@@ -189,6 +189,7 @@ async function doLogin() {
     state.currentUser = user;
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
+    restoreSidebarState();
     await loadAppData();
     identifySocket();
     loadStaffUnreadCount();
@@ -218,6 +219,7 @@ async function tryAutoLogin() {
     state.currentUser = user;
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
+    restoreSidebarState();
     await loadAppData();
     identifySocket();
     loadStaffUnreadCount();
@@ -257,12 +259,23 @@ async function loadAppData() {
 
 // ═══════════════ SIDEBAR / NAV ═══════════════
 function toggleSidebar() {
-  document.getElementById("sidebar").classList.toggle("open");
-  document.getElementById("overlay").classList.toggle("show");
+  if (window.innerWidth <= 768) {
+    document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("overlay").classList.toggle("show");
+  } else {
+    const app = document.getElementById("app");
+    const hidden = app.classList.toggle("sb-hidden");
+    try { localStorage.setItem("olive_sb_hidden", hidden ? "1" : "0"); } catch(_) {}
+  }
 }
 function closeSidebar() {
   document.getElementById("sidebar").classList.remove("open");
   document.getElementById("overlay").classList.remove("show");
+}
+function restoreSidebarState() {
+  if (window.innerWidth > 768 && localStorage.getItem("olive_sb_hidden") === "1") {
+    document.getElementById("app").classList.add("sb-hidden");
+  }
 }
 
 function setView(v) {
@@ -419,7 +432,8 @@ const VIEW_TITLES = {
   complaints:     "الشكاوي",
   moderatorForm:  "فورم الطلبات",
   whatsappChat:   "واتساب",
-  staffChat:      "المحادثات"
+  staffChat:      "المحادثات",
+  inventory:      "المخزن"
 };
 
 // ═══════════════ RENDER ALL ═══════════════
@@ -445,9 +459,10 @@ function renderSidebar() {
     { key: "complaints",   label: "الشكاوي",      icon: "📋", perm: "view:complaints" },
     { key: "performance",  label: "الأداء",       icon: "🏆", perm: "view:performance" },
     { key: "reports",      label: "التقارير",     icon: "📈", perm: "view:reports" },
+    { key: "inventory",    label: "المخزن",       icon: "🏭" },
     { key: "settings",     label: "الإعدادات",    icon: "⚙️", perm: "view:settings" },
   ];
-  const links = allLinks.filter(l => can(l.perm));
+  const links = allLinks.filter(l => !l.perm || can(l.perm));
   document.getElementById("sb-links").innerHTML = links.map(l => `
     <div class="sb-link ${state.view === l.key || (state.view === "customerDetail" && l.key === "customers") ? "active" : ""}" onclick="setView('${l.key}')">
       <span class="sb-link-icon">${l.icon}</span>
@@ -491,7 +506,31 @@ function renderContent() {
   else if (v === "settings")       el.innerHTML = renderSettings();
   else if (v === "whatsappChat")   el.innerHTML = renderWhatsAppChat();
   else if (v === "staffChat")      el.innerHTML = renderStaffChat();
+  else if (v === "inventory")    { el.innerHTML = renderInventory(); loadInventoryFrame(); }
 }
+
+function renderInventory() {
+  return `<iframe id="inventory-frame" src="about:blank" style="width:100%;height:100%;min-height:calc(100vh - 60px);border:0;display:block" title="نظام المخزن"></iframe>`;
+}
+
+async function loadInventoryFrame() {
+  const frame = document.getElementById('inventory-frame');
+  if (!frame) return;
+  try {
+    const r = await fetch('/api/inventory/sso', { method: 'POST', headers: { Authorization: 'Bearer ' + localStorage.getItem(TOKEN_KEY) } });
+    const text = await r.text();
+    if (!r.ok) throw new Error(`HTTP ${r.status} — ${text.slice(0, 300)}`);
+    const data = JSON.parse(text);
+    const ssoPayload = encodeURIComponent(JSON.stringify(data));
+    frame.src = `/inventory/?embedded=1#sso=${ssoPayload}`;
+  } catch (e) {
+    frame.srcdoc = `<div style="padding:24px;font-family:Cairo;color:#dc2626">فشل فتح المخزن: ${esc(e.message)}</div>`;
+  }
+}
+
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'inventory-back') setView('dashboard');
+});
 
 // ═══════════════ PAGINATION HTML HELPER ═══════════════
 function renderPaginationControls(currentPage, totalPages, totalItems, onPageFn) {

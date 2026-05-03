@@ -903,14 +903,19 @@ select { cursor: pointer; }
 .perf-stat-lbl { font-size: 11px; color: var(--text-muted); }
 
 /* ═══════════════ RESPONSIVE ═══════════════ */
-#menu-btn { display: none; }
+#menu-btn { display: inline-flex; }
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 199; }
+
+/* Desktop: collapsible sidebar */
+@media (min-width: 769px) {
+  #app.sb-hidden #sidebar { transform: translateX(100%); }
+  #app.sb-hidden #main { margin-right: 0; }
+}
 
 @media (max-width: 768px) {
   #sidebar { transform: translateX(100%); width: 260px; }
   #sidebar.open { transform: translateX(0); }
   #main { margin-right: 0; width: 100%; max-width: 100vw; overflow-x: hidden; }
-  #menu-btn { display: inline-flex; }
   .overlay.show { display: block; }
   .desktop-only { display: none !important; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
