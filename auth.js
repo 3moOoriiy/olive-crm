@@ -122,6 +122,9 @@ const PERMISSIONS = {
   supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
   operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
   admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  warehouse_manager:    ['view:dashboard', 'view:inventory'],
+  warehouse_supervisor: ['view:dashboard', 'view:inventory'],
+  warehouse_worker:     ['view:dashboard', 'view:inventory'],
 };
 
 function canAccess(role, permission) {

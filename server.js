@@ -67,12 +67,23 @@ const CRM_TO_INV_ROLE = {
   call_center: 'CASHIER',
   moderator: 'CASHIER',
   complaints: 'VIEWER',
+  warehouse_manager:    'ADMIN',
+  warehouse_supervisor: 'BRANCH_MANAGER',
+  warehouse_worker:     'WAREHOUSE',
 };
 
 app.post('/api/inventory/sso', requireAuth, requirePermission('view:inventory'), async (req, res) => {
   try {
     const crmUser = req.user;
     const invRole = CRM_TO_INV_ROLE[crmUser.role] || 'VIEWER';
+
+    // Ensure a default branch exists, so POS works out-of-the-box
+    let defaultBranch = await inventoryPrisma.branch.findFirst({ orderBy: { createdAt: 'asc' } });
+    if (!defaultBranch) {
+      defaultBranch = await inventoryPrisma.branch.create({
+        data: { name: 'الفرع الرئيسي', address: '-', phone: '-' },
+      });
+    }
 
     let invUser = await inventoryPrisma.user.findUnique({ where: { email: crmUser.email } });
     if (!invUser) {
@@ -84,10 +95,16 @@ app.post('/api/inventory/sso', requireAuth, requirePermission('view:inventory'),
           password: placeholderHash,
           role: invRole,
           isActive: true,
+          branchId: defaultBranch.id,
         },
       });
-    } else if (invUser.role !== invRole && !invUser.permissions) {
-      invUser = await inventoryPrisma.user.update({ where: { id: invUser.id }, data: { role: invRole } });
+    } else {
+      const updates = {};
+      if (invUser.role !== invRole && !invUser.permissions) updates.role = invRole;
+      if (!invUser.branchId) updates.branchId = defaultBranch.id;
+      if (Object.keys(updates).length) {
+        invUser = await inventoryPrisma.user.update({ where: { id: invUser.id }, data: updates });
+      }
     }
 
     const accessToken = jwt.sign({ userId: invUser.id }, inventoryConfig.jwt.secret, { expiresIn: inventoryConfig.jwt.expiresIn });
@@ -745,7 +762,7 @@ app.post('/api/users', requireAuth, requirePermission('users:manage'), (req, res
   const existing = db.get('SELECT id FROM users WHERE email = ?', [email]);
   if (existing) return res.status(409).json({ error: 'البريد مسجل مسبقاً' });
 
-  const validRoles = ['moderator', 'call_center', 'complaints', 'supervisor', 'operations', 'admin'];
+  const validRoles = ['moderator', 'call_center', 'complaints', 'supervisor', 'operations', 'admin', 'warehouse_manager', 'warehouse_supervisor', 'warehouse_worker'];
   const safeRole = validRoles.includes(role) ? role : 'call_center';
 
   const hash = bcrypt.hashSync(password, 10);

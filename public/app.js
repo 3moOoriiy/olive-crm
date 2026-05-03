@@ -74,14 +74,21 @@ const STATUSES = [
 ];
 const SOURCES = ["فيسبوك", "واتساب", "جوجل", "انستجرام", "توصية", "أخرى"];
 const REGIONS = ["القاهرة","الجيزة","الإسكندرية","الشرقية","الدقهلية","المنوفية","القليوبية","البحيرة","الغربية","كفر الشيخ","دمياط","بورسعيد","الإسماعيلية","السويس","الفيوم","بني سويف","المنيا","أسيوط","سوهاج","قنا","الأقصر","أسوان"];
-const ROLE_LABELS = { admin: "مدير", operations: "أوبريشن", supervisor: "سوبرفايزر", complaints: "مسئول شكاوي", call_center: "كول سنتر", moderator: "مودوريتور", agent: "موظف" };
+const ROLE_LABELS = {
+  admin: "مدير", operations: "أوبريشن", supervisor: "سوبرفايزر",
+  complaints: "مسئول شكاوي", call_center: "كول سنتر", moderator: "مودوريتور", agent: "موظف",
+  warehouse_manager: "مدير مخزن", warehouse_supervisor: "مسئول مخزن", warehouse_worker: "عامل مخزن"
+};
 const PERMS = {
   moderator:   ['view:dashboard', 'view:moderator_form', 'view:staff_chat', 'orders:create'],
   call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
   complaints:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
   supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
-  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
-  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  warehouse_manager:    ['view:dashboard', 'view:inventory'],
+  warehouse_supervisor: ['view:dashboard', 'view:inventory'],
+  warehouse_worker:     ['view:dashboard', 'view:inventory'],
 };
 function can(perm) {
   const u = state.currentUser;
@@ -2255,6 +2262,9 @@ function openAddUserModal() {
       <option value="supervisor">سوبرفايزر</option>
       <option value="operations">أوبريشن</option>
       <option value="admin">مدير</option>
+      <option value="warehouse_manager">🏭 مدير مخزن</option>
+      <option value="warehouse_supervisor">🏭 مسئول مخزن</option>
+      <option value="warehouse_worker">🏭 عامل مخزن</option>
     </select></div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveNewUser()">حفظ</button>`);
 }
@@ -2288,6 +2298,9 @@ function openEditUserModal(id) {
       <option value="supervisor"  ${u.role === 'supervisor'  ? 'selected' : ''}>سوبرفايزر</option>
       <option value="operations"  ${u.role === 'operations'  ? 'selected' : ''}>أوبريشن</option>
       <option value="admin"       ${u.role === 'admin'       ? 'selected' : ''}>مدير</option>
+      <option value="warehouse_manager"    ${u.role === 'warehouse_manager'    ? 'selected' : ''}>🏭 مدير مخزن</option>
+      <option value="warehouse_supervisor" ${u.role === 'warehouse_supervisor' ? 'selected' : ''}>🏭 مسئول مخزن</option>
+      <option value="warehouse_worker"     ${u.role === 'warehouse_worker'     ? 'selected' : ''}>🏭 عامل مخزن</option>
     </select></div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveEditUser(${u.id})">💾 حفظ</button>`);
 }
