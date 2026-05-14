@@ -24,6 +24,16 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.json({ limit: '10mb' }));
+// Disable browser caching for CRM static files (not /inventory which is versioned)
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/inventory') && (req.path === '/' ||
+      req.path.endsWith('.html') || req.path.endsWith('.css') || req.path.endsWith('.js'))) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public'), { etag: false, maxAge: 0 }));
 
 // ═══════════════ INVENTORY SYSTEM (mounted at /inventory) ═══════════════
