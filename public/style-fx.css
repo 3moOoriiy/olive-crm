@@ -1,0 +1,225 @@
+/* ═══════════════ OLIVE CRM — UI ENHANCEMENTS / ANIMATIONS ═══════════════
+   This file layers polish on top of style.css without changing the base layout.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* ─── Smoother defaults ─── */
+html { scroll-behavior: smooth; }
+body { font-feature-settings: "ss01"; }
+button, a, .sb-link, .stat-card, .card, .modal-box, input, select, textarea {
+  transition: transform .22s cubic-bezier(.2,.7,.2,1),
+              box-shadow .22s ease,
+              background .22s ease,
+              border-color .22s ease,
+              color .15s ease;
+}
+
+/* ═══════════════ LOGIN — AURORA BACKGROUND ═══════════════ */
+#login-screen {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 30% 20%, #1a4a0d 0%, #0a1f04 70%);
+}
+#login-screen::before,
+#login-screen::after {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
+  will-change: transform;
+  background:
+    radial-gradient(closest-side, rgba(34,197,94,.45), transparent 70%) 20% 30%/40% 40% no-repeat,
+    radial-gradient(closest-side, rgba(200,151,42,.35), transparent 70%) 70% 60%/45% 45% no-repeat,
+    radial-gradient(closest-side, rgba(45,107,24,.55), transparent 70%) 50% 80%/55% 55% no-repeat;
+  filter: blur(60px);
+  animation: aurora-flow 22s ease-in-out infinite;
+}
+#login-screen::after {
+  background:
+    radial-gradient(closest-side, rgba(16,185,129,.35), transparent 70%) 80% 20%/40% 40% no-repeat,
+    radial-gradient(closest-side, rgba(132,204,22,.30), transparent 70%) 25% 75%/50% 50% no-repeat;
+  animation-duration: 30s;
+  animation-direction: reverse;
+  opacity: .7;
+}
+@keyframes aurora-flow {
+  0%,100% { transform: translate3d(0,0,0) rotate(0deg); }
+  33%     { transform: translate3d(2%, -3%, 0) rotate(8deg); }
+  66%     { transform: translate3d(-3%, 2%, 0) rotate(-6deg); }
+}
+
+/* Floating shimmer particles */
+#login-screen .login-card { position: relative; z-index: 1; }
+#login-screen::before { z-index: 0; }
+
+.login-card {
+  backdrop-filter: blur(12px) saturate(1.05);
+  background: rgba(255,255,255,.96);
+  border: 1px solid rgba(255,255,255,.6);
+  box-shadow: 0 30px 60px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.1) inset;
+  animation: card-rise .6s cubic-bezier(.2,.9,.2,1) both;
+}
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(20px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ═══════════════ STAT CARDS — HOVER LIFT + GLOW ═══════════════ */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+}
+.stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(34,197,94,.06) 100%);
+  opacity: 0;
+  transition: opacity .3s ease;
+  pointer-events: none;
+}
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(15,42,6,.12), 0 0 0 1px rgba(34,197,94,.18);
+}
+.stat-card:hover::before { opacity: 1; }
+.stat-card .stat-icon {
+  transition: transform .35s cubic-bezier(.2,.9,.2,1);
+}
+.stat-card:hover .stat-icon { transform: scale(1.08) rotate(-4deg); }
+
+.stat-value {
+  background: linear-gradient(135deg, #1e4d0f 0%, #22c55e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ═══════════════ BUTTONS — POLISH + RIPPLE ═══════════════ */
+.btn { position: relative; overflow: hidden; }
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,.4) 0%, transparent 60%);
+  opacity: 0;
+  transform: scale(.4);
+  transition: opacity .5s ease, transform .5s ease;
+  pointer-events: none;
+}
+.btn:active::after { opacity: 1; transform: scale(2); transition: 0s; }
+.btn-primary { box-shadow: 0 4px 12px rgba(30,77,15,.25); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(30,77,15,.35); }
+.btn-primary:active { transform: translateY(0); }
+
+/* ═══════════════ SIDEBAR LINKS — ANIMATED ACTIVE INDICATOR ═══════════════ */
+.sb-link { position: relative; }
+.sb-link::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  background: #22c55e;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  transition: height .25s cubic-bezier(.2,.9,.2,1);
+}
+.sb-link.active::before { height: 70%; }
+.sb-link:hover {
+  transform: translateX(-2px);
+}
+.sb-link.active {
+  background: linear-gradient(90deg, rgba(34,197,94,.18), rgba(34,197,94,.05));
+  border-color: rgba(34,197,94,.25);
+  box-shadow: 0 0 0 1px rgba(34,197,94,.2), 0 4px 12px rgba(0,0,0,.15);
+}
+
+/* ═══════════════ PAGE TRANSITIONS — FADE + RISE ═══════════════ */
+.page {
+  animation: page-in .35s cubic-bezier(.2,.9,.2,1) both;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════ MODAL — BACKDROP BLUR + SCALE ═══════════════ */
+.modal-overlay {
+  backdrop-filter: blur(6px);
+  animation: backdrop-fade .25s ease both;
+}
+@keyframes backdrop-fade { from { opacity: 0; } to { opacity: 1; } }
+.modal-box {
+  animation: modal-pop .35s cubic-bezier(.2,.9,.2,1) both;
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ═══════════════ INPUTS — FOCUS GLOW ═══════════════ */
+input, select, textarea {
+  border: 1px solid var(--border);
+}
+input:focus, select:focus, textarea:focus {
+  outline: 0;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+}
+
+/* ═══════════════ TOPBAR — POLISH ═══════════════ */
+#topbar {
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,.85);
+  border-bottom: 1px solid rgba(229,231,235,.6);
+}
+
+/* ═══════════════ SPINNERS — UPGRADE ═══════════════ */
+.spinner, [class*="spin"] {
+  filter: drop-shadow(0 0 6px rgba(34,197,94,.4));
+}
+
+/* ═══════════════ TABLE ROW HOVER ═══════════════ */
+table tbody tr {
+  transition: background .15s ease, transform .15s ease;
+}
+table tbody tr:hover {
+  background: rgba(34,197,94,.04);
+}
+
+/* ═══════════════ BADGE SHIMMER ═══════════════ */
+.sb-badge {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 0 12px rgba(239,68,68,.5);
+  animation: badge-pulse 2.4s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 0 12px rgba(239,68,68,.5); }
+  50%      { box-shadow: 0 0 0 4px rgba(255,255,255,.08), 0 0 20px rgba(239,68,68,.7); }
+}
+
+/* ═══════════════ NUMBER COUNT-UP (used via JS) ═══════════════ */
+.count-up { display: inline-block; font-variant-numeric: tabular-nums; }
+
+/* ═══════════════ SHIMMER LOADING SKELETON ═══════════════ */
+.skeleton {
+  background: linear-gradient(90deg, #eef0f3 25%, #f7f8fa 50%, #eef0f3 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ═══════════════ REDUCED MOTION ═══════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

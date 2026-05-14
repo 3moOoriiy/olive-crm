@@ -480,6 +480,27 @@ function renderAll() {
   renderSidebar();
   renderTopbar();
   renderContent();
+  animateCountUps();
+}
+
+// ═══════════════ COUNT-UP ANIMATION ═══════════════
+function animateCountUps() {
+  document.querySelectorAll('.count-up[data-target]').forEach(el => {
+    if (el.dataset.done === '1') return;
+    el.dataset.done = '1';
+    const target = parseFloat(el.dataset.target) || 0;
+    const suffix = el.dataset.suffix || '';
+    const dur = 900;
+    const start = performance.now();
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = target * eased;
+      el.textContent = (target % 1 === 0 ? Math.round(v) : v.toFixed(1)) + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
 }
 
 // ═══════════════ SIDEBAR RENDER ═══════════════
@@ -545,6 +566,7 @@ function renderContent() {
   else if (v === "whatsappChat")   el.innerHTML = renderWhatsAppChat();
   else if (v === "staffChat")      el.innerHTML = renderStaffChat();
   else if (v === "inventory")    { el.innerHTML = renderInventory(); loadInventoryFrame(); }
+  if (typeof animateCountUps === 'function') animateCountUps();
 }
 
 function renderInventory() {
@@ -629,7 +651,7 @@ function renderDashboard() {
     <div class="stat-card">
       <div class="stat-icon" style="background:${bg};color:${color}">${icon}</div>
       <div class="stat-info">
-        <div class="stat-value" style="color:${color}">${val}</div>
+        <div class="stat-value count-up" data-target="${String(val).replace(/[^\d.]/g,'')}" data-suffix="${String(val).replace(/[\d.]/g,'')}" style="color:${color}">${val}</div>
         <div class="stat-label">${label}</div>
       </div>
     </div>`).join("")}
