@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area,
 } from 'recharts';
+import Stack from '../components/Stack';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -286,6 +287,67 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Stack — interactive cards for latest invoices */}
+      {data?.recentInvoices?.length > 0 && (
+        <div className="card" style={{ background: 'linear-gradient(135deg, #052e16 0%, #14532d 50%, #166534 100%)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-white">آخر الفواتير — اسحبها 🔥</h3>
+              <p className="text-xs text-green-100 mt-1">اضغط أو اسحب الكارت لتمريرها</p>
+            </div>
+            <Link to="/invoices" className="text-green-100 hover:text-white text-sm font-medium">
+              عرض الكل ←
+            </Link>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+            <div style={{ width: 280, height: 200 }}>
+              <Stack
+                randomRotation
+                sensitivity={150}
+                sendToBackOnClick
+                autoplay
+                autoplayDelay={3500}
+                pauseOnHover
+                cards={data.recentInvoices.slice(0, 5).map((inv) => ({
+                  id: inv.id,
+                  content: (
+                    <div style={{
+                      width: '100%', height: '100%',
+                      background: 'linear-gradient(135deg, #fff, #f0fdf4)',
+                      borderRadius: '1rem',
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxShadow: '0 10px 30px rgba(0,0,0,.3)',
+                      border: '1px solid rgba(34,197,94,.3)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                        <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, fontFamily: 'monospace' }}>{inv.invoiceNumber}</div>
+                        <span style={{
+                          fontSize: 10, padding: '2px 8px', borderRadius: 999,
+                          background: inv.status === 'COMPLETED' ? '#dcfce7' : '#fee2e2',
+                          color: inv.status === 'COMPLETED' ? '#166534' : '#991b1b',
+                        }}>
+                          {inv.status === 'COMPLETED' ? 'مكتملة' : inv.status === 'CANCELLED' ? 'ملغاة' : 'معلقة'}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d' }}>{formatNumber(inv.total)} ج.م</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>{inv.customer?.name || 'عميل نقدي'}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'left' }}>
+                        {inv.user?.name || '-'}  •  {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('ar-EG') : '-'}
+                      </div>
+                    </div>
+                  ),
+                })).map(c => c.content)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Invoices */}
       <div className="card">
