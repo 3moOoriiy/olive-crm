@@ -342,15 +342,25 @@ table tbody tr:hover {
 .fx-pill-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   max-width: 100%;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.fx-pill-nav::-webkit-scrollbar { display: none; }
-.fx-pill-list { flex-wrap: nowrap; }
+.fx-pill-list {
+  flex-wrap: wrap;
+  height: auto;
+  padding: 4px;
+  row-gap: 3px;
+}
+#topbar {
+  height: auto !important;
+  min-height: var(--topbar-h, 56px);
+  flex-wrap: wrap;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  align-items: center;
+}
 .fx-pill-logo {
   width: 38px; height: 38px;
   border-radius: 50%;
