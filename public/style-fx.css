@@ -462,42 +462,79 @@ table tbody tr:hover {
   box-shadow: 0 8px 20px rgba(30,77,15,.5);
 }
 
-/* ─── Mobile layout: stack rows + shrink pills ─── */
-@media (max-width: 900px) {
-  #pill-nav-row { padding: 8px; }
+/* ─── Mobile layout (icon-only pills) ─── */
+@media (max-width: 768px) {
+  #topbar {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  #pill-nav-row {
+    padding: 0;
+    order: 99;
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
   .fx-pill-nav {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
     gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
   }
   .fx-pill-list {
-    height: auto;
-    padding: 4px;
-    flex-wrap: wrap;
+    height: 38px;
+    padding: 3px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+  .fx-pill-list::-webkit-scrollbar { display: none; }
+  .fx-pill {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    flex-shrink: 0;
+    font-size: 0;
+  }
+  .fx-pill-content {
+    gap: 0;
+  }
+  .fx-pill-content > :not(.fx-pill-icon):not(.fx-pill-badge) {
+    display: none;
+  }
+  .fx-pill-icon {
+    font-size: 16px;
+  }
+  .fx-pill-badge {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    min-width: 14px;
+    height: 14px;
+    font-size: 9px;
+    padding: 0 3px;
+  }
+  .fx-pill-logo {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .fx-pill-back {
+    height: 32px;
+    font-size: 0;
+    padding: 0;
+    width: 32px;
+    border-radius: 50%;
     justify-content: center;
-    gap: 3px;
+    flex-shrink: 0;
   }
-  .fx-pill {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 11px;
-  }
-  .fx-pill-icon { font-size: 12px; }
-  .fx-pill-logo, .fx-pill-back {
-    align-self: center;
-  }
-  .fx-pill-logo { width: 36px; height: 36px; font-size: 16px; }
-  .fx-pill-back { height: 32px; font-size: 11px; padding: 0 12px; }
-}
-
-@media (max-width: 480px) {
-  .fx-pill {
-    height: 28px;
-    padding: 0 8px;
-    font-size: 10px;
-  }
-  .fx-pill-content { gap: 3px; }
-  .fx-pill-icon { font-size: 11px; }
+  .fx-pill-back::before { content: '←'; font-size: 16px; font-weight: 800; }
+  #topbar-user { display: none !important; }
 }
 
 /* ═══════════════ REDUCED MOTION ═══════════════ */
