@@ -667,33 +667,39 @@ function attachPillScroll() {
     }
   }, { passive: false });
 
-  // Click + drag scroll (mouse)
-  let isDown = false, startX = 0, startScroll = 0, moved = 0;
-  list.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    isDown = true; moved = 0;
+  // Drag-to-scroll (mouse only — touch uses native horizontal scroll)
+  let isDown = false, startX = 0, startScroll = 0, dragging = false;
+  list.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDown = true; dragging = false;
     startX = e.clientX;
     startScroll = list.scrollLeft;
-    try { list.setPointerCapture(e.pointerId); } catch (_) {}
   });
-  list.addEventListener('pointermove', (e) => {
+  list.addEventListener('mousemove', (e) => {
     if (!isDown) return;
     const dx = e.clientX - startX;
-    if (Math.abs(dx) > 4) {
-      moved = Math.abs(dx);
+    if (!dragging && Math.abs(dx) > 6) {
+      dragging = true;
       list.classList.add('is-dragging');
+    }
+    if (dragging) {
       list.scrollLeft = startScroll - dx;
+      e.preventDefault();
     }
   });
-  const end = (e) => {
+  const end = () => {
     if (!isDown) return;
     isDown = false;
-    list.classList.remove('is-dragging');
-    try { list.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (dragging) {
+      // Suppress the click that follows the drag
+      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); list.removeEventListener('click', swallow, true); };
+      list.addEventListener('click', swallow, true);
+    }
+    setTimeout(() => list.classList.remove('is-dragging'), 0);
+    dragging = false;
   };
-  list.addEventListener('pointerup', end);
-  list.addEventListener('pointercancel', end);
-  list.addEventListener('pointerleave', end);
+  list.addEventListener('mouseup', end);
+  list.addEventListener('mouseleave', end);
 
   // Auto-scroll to the active pill so it's always visible
   const active = list.querySelector('.fx-pill.active');

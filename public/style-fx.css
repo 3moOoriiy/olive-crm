@@ -360,8 +360,7 @@ table tbody tr:hover {
   user-select: none;
 }
 .fx-pill-list::-webkit-scrollbar { display: none; }
-.fx-pill-list.is-dragging { cursor: grabbing; scroll-behavior: auto; }
-.fx-pill-list.is-dragging .fx-pill { pointer-events: none; }
+.fx-pill-list.is-dragging { cursor: grabbing; scroll-behavior: auto; user-select: none; }
 .fx-pill-logo {
   width: 38px; height: 38px;
   border-radius: 50%;
