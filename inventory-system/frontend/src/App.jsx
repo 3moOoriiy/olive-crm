@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -25,9 +26,35 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Bridges parent CRM <-> inventory iframe via postMessage
+function ParentBridge() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Listen for navigation requests from CRM parent
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data && e.data.type === 'inventory-navigate' && typeof e.data.path === 'string') {
+        navigate(e.data.path);
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [navigate]);
+
+  // Notify CRM parent of route changes
+  useEffect(() => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'inventory-route', path: location.pathname }, '*');
+    }
+  }, [location.pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
-    <Routes>
+    <><ParentBridge /><Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
@@ -48,6 +75,6 @@ export default function App() {
         <Route path="activity" element={<ActivityLog />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    </Routes></>
   );
 }

@@ -555,11 +555,46 @@ function renderTopbar() {
 }
 
 // ═══════════════ PILL NAV (CRM quick-access bar) ═══════════════
+const INV_PILLS = [
+  { key: '/',         label: 'الرئيسية',    icon: '📊' },
+  { key: '/products', label: 'المنتجات',    icon: '📦' },
+  { key: '/pos',      label: 'نقطة البيع',  icon: '🛒' },
+  { key: '/invoices', label: 'الفواتير',    icon: '🧾' },
+  { key: '/inventory',label: 'المخزون',     icon: '🏭' },
+  { key: '/categories',label: 'التصنيفات',  icon: '🗂️' },
+  { key: '/components',label: 'المكونات',   icon: '🧩' },
+  { key: '/reports',  label: 'التقارير',    icon: '📈' },
+  { key: '/users',    label: 'المستخدمين',  icon: '👥' },
+  { key: '/customers',label: 'العملاء',     icon: '🧑' },
+  { key: '/activity', label: 'النشاطات',    icon: '📜' },
+];
+
 function renderPillNav() {
   const row = document.getElementById('pill-nav-row');
   if (!row) return;
   const u = state.currentUser;
   if (!u) { row.innerHTML = ''; return; }
+
+  // When inside inventory view: show inventory pills + back-to-CRM button
+  if (state.view === 'inventory') {
+    const active = state.inventoryRoute || '/';
+    row.innerHTML = `
+      <div class="fx-pill-nav">
+        <button class="fx-pill-back" onclick="setView('dashboard')" title="رجوع للـ CRM">
+          ← رجوع للـ CRM
+        </button>
+        <div class="fx-pill-logo" title="نظام المخزن">🏭</div>
+        <div class="fx-pill-list">
+          ${INV_PILLS.map(it => `
+            <button class="fx-pill ${active === it.key ? 'active' : ''}" onclick="navInventory('${it.key}')">
+              <span class="fx-pill-content"><span class="fx-pill-icon">${it.icon}</span>${it.label}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>`;
+    return;
+  }
+
   const items = [
     { key: 'dashboard',     label: 'الرئيسية',      icon: '📊', perm: 'view:dashboard' },
     { key: 'customers',     label: 'العملاء',       icon: '👥', perm: 'view:customers' },
@@ -589,6 +624,15 @@ function renderPillNav() {
         `).join('')}
       </div>
     </div>`;
+}
+
+function navInventory(path) {
+  state.inventoryRoute = path;
+  const frame = document.getElementById('inventory-frame');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'inventory-navigate', path }, '*');
+  }
+  renderPillNav();
 }
 
 // ═══════════════ CONTENT ROUTER ═══════════════
@@ -632,7 +676,12 @@ async function loadInventoryFrame() {
 }
 
 window.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'inventory-back') setView('dashboard');
+  if (!e.data) return;
+  if (e.data.type === 'inventory-back') setView('dashboard');
+  if (e.data.type === 'inventory-route' && typeof e.data.path === 'string') {
+    state.inventoryRoute = e.data.path;
+    if (state.view === 'inventory') renderPillNav();
+  }
 });
 
 // ═══════════════ PAGINATION HTML HELPER ═══════════════

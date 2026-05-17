@@ -430,11 +430,65 @@ table tbody tr:hover {
   box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 0 10px rgba(239,68,68,.6);
   animation: badge-pulse 2s ease-in-out infinite;
 }
-@media (max-width: 768px) {
-  #pill-nav-row { padding: 8px 6px; }
-  .fx-pill { padding: 0 9px; font-size: 11px; height: 28px; }
-  .fx-pill-logo { width: 32px; height: 32px; font-size: 16px; }
-  .fx-pill-list { height: 34px; padding: 3px; }
+/* Back-to-CRM button (shown in inventory view) */
+.fx-pill-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px;
+  height: 38px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #1e4d0f, #166534);
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(30,77,15,.4);
+  transition: transform .2s ease, box-shadow .2s ease;
+  white-space: nowrap;
+}
+.fx-pill-back:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(30,77,15,.5);
+}
+
+/* ─── Mobile layout: stack rows + shrink pills ─── */
+@media (max-width: 900px) {
+  #pill-nav-row { padding: 8px; }
+  .fx-pill-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .fx-pill-list {
+    height: auto;
+    padding: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+  }
+  .fx-pill {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .fx-pill-icon { font-size: 12px; }
+  .fx-pill-logo, .fx-pill-back {
+    align-self: center;
+  }
+  .fx-pill-logo { width: 36px; height: 36px; font-size: 16px; }
+  .fx-pill-back { height: 32px; font-size: 11px; padding: 0 12px; }
+}
+
+@media (max-width: 480px) {
+  .fx-pill {
+    height: 28px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+  .fx-pill-content { gap: 3px; }
+  .fx-pill-icon { font-size: 11px; }
 }
 
 /* ═══════════════ REDUCED MOTION ═══════════════ */
