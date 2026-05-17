@@ -549,7 +549,8 @@ function renderTopbar() {
   if (!u) return;
   let title = VIEW_TITLES[state.view] || "";
   if (state.view === "customerDetail" && state.selectedCustomer) title = state.selectedCustomer.name;
-  document.getElementById("topbar-title").textContent = title;
+  const titleEl = document.getElementById("topbar-title");
+  if (titleEl) titleEl.textContent = title;
   document.getElementById("topbar-user").innerHTML = `<div style="font-size:12px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted)">${ROLE_LABELS[u.role]}</div>`;
   renderPillNav();
 }
