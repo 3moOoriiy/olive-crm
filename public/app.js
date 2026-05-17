@@ -593,6 +593,8 @@ function renderPillNav() {
           `).join('')}
         </div>
       </div>`;
+    delete row.querySelector('.fx-pill-list')?.dataset.scrollAttached;
+    attachPillScroll();
     return;
   }
 
@@ -625,6 +627,8 @@ function renderPillNav() {
         `).join('')}
       </div>
     </div>`;
+  delete row.querySelector('.fx-pill-list')?.dataset.scrollAttached;
+  attachPillScroll();
 }
 
 function navInventory(path) {
@@ -634,6 +638,59 @@ function navInventory(path) {
     frame.contentWindow.postMessage({ type: 'inventory-navigate', path }, '*');
   }
   renderPillNav();
+}
+
+// Drag-to-scroll for the pill list (mouse + wheel + touch)
+function attachPillScroll() {
+  const list = document.querySelector('.fx-pill-list');
+  if (!list || list.dataset.scrollAttached === '1') return;
+  list.dataset.scrollAttached = '1';
+
+  // Vertical wheel → horizontal scroll
+  list.addEventListener('wheel', (e) => {
+    if (e.deltaY !== 0 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      list.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Click + drag scroll (mouse)
+  let isDown = false, startX = 0, startScroll = 0, moved = 0;
+  list.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    isDown = true; moved = 0;
+    startX = e.clientX;
+    startScroll = list.scrollLeft;
+    try { list.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  list.addEventListener('pointermove', (e) => {
+    if (!isDown) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 4) {
+      moved = Math.abs(dx);
+      list.classList.add('is-dragging');
+      list.scrollLeft = startScroll - dx;
+    }
+  });
+  const end = (e) => {
+    if (!isDown) return;
+    isDown = false;
+    list.classList.remove('is-dragging');
+    try { list.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  list.addEventListener('pointerup', end);
+  list.addEventListener('pointercancel', end);
+  list.addEventListener('pointerleave', end);
+
+  // Auto-scroll to the active pill so it's always visible
+  const active = list.querySelector('.fx-pill.active');
+  if (active) {
+    const r = active.getBoundingClientRect();
+    const lr = list.getBoundingClientRect();
+    if (r.left < lr.left || r.right > lr.right) {
+      active.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    }
+  }
 }
 
 // ═══════════════ CONTENT ROUTER ═══════════════
