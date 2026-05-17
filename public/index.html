@@ -12,7 +12,7 @@
 <title>Olive CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=11">
-<link rel="stylesheet" href="/style-fx.css?v=2">
+<link rel="stylesheet" href="/style-fx.css?v=3">
 </head>
 <body>
 
@@ -66,6 +66,7 @@
       <div id="topbar-user" class="desktop-only" style="text-align:left;margin-left:8px"></div>
       <button class="btn btn-ghost btn-sm" onclick="logout()">خروج</button>
     </div>
+    <div id="pill-nav-row"></div>
     <div id="content"></div>
   </div>
 </div>
@@ -91,7 +92,7 @@
 <!-- ═══════════════ SCRIPTS ═══════════════ -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/app.js?v=13"></script>
+<script src="/app.js?v=14"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

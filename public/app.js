@@ -546,6 +546,36 @@ function renderTopbar() {
   if (state.view === "customerDetail" && state.selectedCustomer) title = state.selectedCustomer.name;
   document.getElementById("topbar-title").textContent = title;
   document.getElementById("topbar-user").innerHTML = `<div style="font-size:12px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted)">${ROLE_LABELS[u.role]}</div>`;
+  renderPillNav();
+}
+
+// ═══════════════ PILL NAV (CRM quick-access bar) ═══════════════
+function renderPillNav() {
+  const row = document.getElementById('pill-nav-row');
+  if (!row) return;
+  const u = state.currentUser;
+  if (!u) { row.innerHTML = ''; return; }
+  const items = [
+    { key: 'dashboard',    label: 'الرئيسية',   icon: '📊', perm: 'view:dashboard' },
+    { key: 'customers',    label: 'العملاء',    icon: '👥', perm: 'view:customers' },
+    { key: 'followups',    label: 'المتابعات',  icon: '🔔', perm: 'view:followups' },
+    { key: 'orders',       label: 'الطلبات',    icon: '📦', perm: 'view:orders' },
+    { key: 'whatsappChat', label: 'واتساب',     icon: '💬', perm: 'view:whatsapp' },
+    { key: 'reports',      label: 'التقارير',   icon: '📈', perm: 'view:reports' },
+    { key: 'inventory',    label: 'المخزن',     icon: '🏭', perm: 'view:inventory' },
+  ].filter(it => !it.perm || can(it.perm));
+  const activeKey = state.view === 'customerDetail' ? 'customers' : state.view;
+  row.innerHTML = `
+    <div class="fx-pill-nav">
+      <div class="fx-pill-logo" onclick="setView('dashboard')" title="الرئيسية">🫒</div>
+      <div class="fx-pill-list">
+        ${items.map(it => `
+          <button class="fx-pill ${activeKey === it.key ? 'active' : ''}" onclick="setView('${it.key}')">
+            <span class="fx-pill-content"><span class="fx-pill-icon">${it.icon}</span>${it.label}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
 }
 
 // ═══════════════ CONTENT ROUTER ═══════════════
