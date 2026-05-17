@@ -3043,17 +3043,28 @@ function renderOnlineUsers() {
   const el = document.getElementById('topbar-online');
   if (!el) return;
   const me = state.currentUser?.id;
-  const others = state.onlineUsers.filter(u => u.id !== me);
+  const others = (state.onlineUsers || []).filter(u => u.id !== me);
   if (others.length === 0) {
-    el.innerHTML = '';
+    el.innerHTML = `<div class="online-empty" title="مفيش حد أونلاين دلوقتي">
+      <span class="online-empty-dot"></span>
+      <span class="online-empty-text">لوحدك دلوقتي</span>
+    </div>`;
     return;
   }
-  el.innerHTML = others.map(u => `
-    <div class="online-avatar" style="background:${u.color || '#6366f1'}" title="${esc(u.name)}" onclick="openQuickChat(${u.id})">
-      ${esc(u.avatar_initials || '')}
-      <span class="online-dot"></span>
-    </div>
-  `).join('');
+  const max = 4;
+  const visible = others.slice(0, max);
+  const rest = others.length - visible.length;
+  el.innerHTML = `
+    <div class="online-cluster" title="${others.length} مستخدم أونلاين">
+      <span class="online-count-badge">${others.length}</span>
+      ${visible.map(u => `
+        <div class="online-avatar" style="background:${u.color || '#6366f1'}" title="${esc(u.name)} — أونلاين" onclick="openQuickChat(${u.id})">
+          ${esc(u.avatar_initials || '')}
+          <span class="online-dot"></span>
+        </div>
+      `).join('')}
+      ${rest > 0 ? `<div class="online-avatar online-more" title="+${rest} كمان">+${rest}</div>` : ''}
+    </div>`;
 }
 
 function openQuickChat(userId) {
