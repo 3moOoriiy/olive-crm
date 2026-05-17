@@ -311,8 +311,13 @@ function closeSidebar() {
   document.getElementById("overlay").classList.remove("show");
 }
 function restoreSidebarState() {
-  if (window.innerWidth > 768 && localStorage.getItem("olive_sb_hidden") === "1") {
-    document.getElementById("app").classList.add("sb-hidden");
+  if (window.innerWidth > 768) {
+    // Hide sidebar by default — PillNav at the top is the main nav now.
+    // Only show if user explicitly opened it (sb_hidden === "0").
+    const pref = localStorage.getItem("olive_sb_hidden");
+    if (pref !== "0") {
+      document.getElementById("app").classList.add("sb-hidden");
+    }
   }
 }
 
@@ -556,13 +561,18 @@ function renderPillNav() {
   const u = state.currentUser;
   if (!u) { row.innerHTML = ''; return; }
   const items = [
-    { key: 'dashboard',    label: 'الرئيسية',   icon: '📊', perm: 'view:dashboard' },
-    { key: 'customers',    label: 'العملاء',    icon: '👥', perm: 'view:customers' },
-    { key: 'followups',    label: 'المتابعات',  icon: '🔔', perm: 'view:followups' },
-    { key: 'orders',       label: 'الطلبات',    icon: '📦', perm: 'view:orders' },
-    { key: 'whatsappChat', label: 'واتساب',     icon: '💬', perm: 'view:whatsapp' },
-    { key: 'reports',      label: 'التقارير',   icon: '📈', perm: 'view:reports' },
-    { key: 'inventory',    label: 'المخزن',     icon: '🏭', perm: 'view:inventory' },
+    { key: 'dashboard',     label: 'الرئيسية',      icon: '📊', perm: 'view:dashboard' },
+    { key: 'customers',     label: 'العملاء',       icon: '👥', perm: 'view:customers' },
+    { key: 'followups',     label: 'المتابعات',     icon: '🔔', perm: 'view:followups' },
+    { key: 'orders',        label: 'الطلبات',       icon: '📦', perm: 'view:orders' },
+    { key: 'whatsappChat',  label: 'واتساب',        icon: '💬', perm: 'view:whatsapp', badge: newMessageCount },
+    { key: 'staffChat',     label: 'المحادثات',     icon: '🗨️', perm: 'view:staff_chat', badge: state.staffChatUnreadTotal },
+    { key: 'moderatorForm', label: 'فورم الطلبات',  icon: '📝', perm: 'view:moderator_form' },
+    { key: 'complaints',    label: 'الشكاوي',       icon: '📋', perm: 'view:complaints' },
+    { key: 'performance',   label: 'الأداء',        icon: '🏆', perm: 'view:performance' },
+    { key: 'reports',       label: 'التقارير',      icon: '📈', perm: 'view:reports' },
+    { key: 'inventory',     label: 'المخزن',        icon: '🏭', perm: 'view:inventory' },
+    { key: 'settings',      label: 'الإعدادات',     icon: '⚙️', perm: 'view:settings' },
   ].filter(it => !it.perm || can(it.perm));
   const activeKey = state.view === 'customerDetail' ? 'customers' : state.view;
   row.innerHTML = `
@@ -571,7 +581,10 @@ function renderPillNav() {
       <div class="fx-pill-list">
         ${items.map(it => `
           <button class="fx-pill ${activeKey === it.key ? 'active' : ''}" onclick="setView('${it.key}')">
-            <span class="fx-pill-content"><span class="fx-pill-icon">${it.icon}</span>${it.label}</span>
+            <span class="fx-pill-content">
+              <span class="fx-pill-icon">${it.icon}</span>${it.label}
+              ${it.badge > 0 ? `<span class="fx-pill-badge">${it.badge}</span>` : ''}
+            </span>
           </button>
         `).join('')}
       </div>

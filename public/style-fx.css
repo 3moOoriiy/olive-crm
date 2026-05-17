@@ -415,6 +415,21 @@ table tbody tr:hover {
   background: #22c55e;
   color: #0a1f04;
 }
+.fx-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 0 10px rgba(239,68,68,.6);
+  animation: badge-pulse 2s ease-in-out infinite;
+}
 @media (max-width: 768px) {
   #pill-nav-row { padding: 8px 6px; }
   .fx-pill { padding: 0 9px; font-size: 11px; height: 28px; }
