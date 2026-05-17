@@ -7,6 +7,7 @@ import {
   AreaChart, Area,
 } from 'recharts';
 import Stack from '../components/Stack';
+import GlassSurface from '../components/GlassSurface';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -116,10 +117,31 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">لوحة التحكم</h1>
-        <p className="text-gray-500 text-sm mt-1">نظرة عامة على المخزون والمبيعات</p>
+      {/* Hero Glass Welcome Banner */}
+      <div style={{
+        position: 'relative',
+        borderRadius: 24,
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, #052e16 0%, #14532d 35%, #22c55e 100%)',
+        padding: '32px 20px',
+      }}>
+        <div style={{
+          position: 'absolute', inset: 0, opacity: 0.4,
+          background: 'radial-gradient(circle at 20% 30%, #84cc16 0%, transparent 50%), radial-gradient(circle at 80% 70%, #fbbf24 0%, transparent 50%)',
+          filter: 'blur(60px)',
+        }} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'center' }}>
+          <GlassSurface width="100%" height={120} borderRadius={20} backgroundOpacity={0.1} saturation={1.5} style={{ maxWidth: 800 }}>
+            <div style={{ textAlign: 'center', padding: '0 16px', color: '#fff' }}>
+              <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, textShadow: '0 2px 12px rgba(0,0,0,.4)' }}>
+                🏭 لوحة تحكم نظام المخزن
+              </h1>
+              <p style={{ fontSize: 13, marginTop: 8, opacity: 0.92, textShadow: '0 1px 6px rgba(0,0,0,.3)' }}>
+                نظرة عامة على المخزون والمبيعات والأداء
+              </p>
+            </div>
+          </GlassSurface>
+        </div>
       </div>
 
       {/* Low Stock Alert Banner */}
