@@ -439,27 +439,33 @@ table tbody tr:hover {
   box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 0 10px rgba(239,68,68,.6);
   animation: badge-pulse 2s ease-in-out infinite;
 }
-/* Back-to-CRM button (shown in inventory view) */
+/* Back-to-CRM button (shown in inventory view) — compact icon */
 .fx-pill-back {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 14px;
-  height: 38px;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 12px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 0;
   color: #fff;
   background: linear-gradient(135deg, #1e4d0f, #166534);
   border: 0;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(30,77,15,.4);
+  box-shadow: 0 3px 10px rgba(30,77,15,.4);
   transition: transform .2s ease, box-shadow .2s ease;
-  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fx-pill-back::before {
+  content: '↩';
+  font-size: 16px;
+  font-weight: 800;
 }
 .fx-pill-back:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(30,77,15,.5);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 6px 14px rgba(30,77,15,.5);
 }
 
 /* ─── Mobile layout (pills with names + horizontal scroll) ─── */
@@ -500,7 +506,8 @@ table tbody tr:hover {
   }
   .fx-pill-icon { font-size: 12px; }
   .fx-pill-logo { width: 36px; height: 36px; font-size: 16px; flex-shrink: 0; }
-  .fx-pill-back { height: 30px; font-size: 11px; padding: 0 10px; flex-shrink: 0; }
+  .fx-pill-back { width: 30px; height: 30px; }
+  .fx-pill-back::before { font-size: 14px; }
   #topbar-user { display: none !important; }
 }
 

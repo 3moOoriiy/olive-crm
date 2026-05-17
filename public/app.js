@@ -594,9 +594,7 @@ function renderPillNav() {
     const active = state.inventoryRoute || '/';
     row.innerHTML = `
       <div class="fx-pill-nav">
-        <button class="fx-pill-back" onclick="setView('dashboard')" title="رجوع للـ CRM">
-          ← رجوع للـ CRM
-        </button>
+        <button class="fx-pill-back" onclick="setView('dashboard')" title="رجوع للـ CRM" aria-label="رجوع للـ CRM"></button>
         <div class="fx-pill-logo" title="نظام المخزن">🏭</div>
         <div class="fx-pill-list">
           ${INV_PILLS.map(it => `
