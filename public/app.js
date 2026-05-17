@@ -325,6 +325,7 @@ function setView(v) {
   hideCustTooltip();
   state.view = v;
   state.selectedCustomer = null;
+  document.body.classList.toggle('crm-inventory-view', v === 'inventory');
   // Reset pagination when switching view
   if (v === 'customers') {
     state.currentPage = 1;
@@ -534,7 +535,18 @@ function renderSidebar() {
       ${l.badge > 0 ? `<span class="sb-badge">${l.badge}</span>` : ""}
     </div>
   `).join("");
-  document.getElementById("sb-user").innerHTML = `<div class="flex gap10">${avHtml(u, 36)}<div><div style="color:#fff;font-weight:700;font-size:13px">${esc(u.name)}</div><div style="color:#a8c49a;font-size:11px">${ROLE_LABELS[u.role]}</div></div></div>`;
+  document.getElementById("sb-user").innerHTML = `
+    <div class="flex gap10" style="align-items:center">
+      ${avHtml(u, 36)}
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.name)}</div>
+        <div style="color:#a8c49a;font-size:11px">${ROLE_LABELS[u.role]}</div>
+      </div>
+      <button onclick="logout()" title="تسجيل الخروج"
+        style="background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">
+        خروج
+      </button>
+    </div>`;
   document.getElementById("sb-status").innerHTML = `<div class="sb-status-inner">
     <span class="wa-status-dot" style="background:${waConnected ? '#16a34a' : '#ef4444'}"></span>
     واتساب: ${waConnected ? '✅ متصل' : '❌ غير متصل'}
@@ -551,7 +563,8 @@ function renderTopbar() {
   if (state.view === "customerDetail" && state.selectedCustomer) title = state.selectedCustomer.name;
   const titleEl = document.getElementById("topbar-title");
   if (titleEl) titleEl.textContent = title;
-  document.getElementById("topbar-user").innerHTML = `<div style="font-size:12px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted)">${ROLE_LABELS[u.role]}</div>`;
+  const userEl = document.getElementById("topbar-user");
+  if (userEl) userEl.innerHTML = `<div style="font-size:12px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted)">${ROLE_LABELS[u.role]}</div>`;
   renderPillNav();
 }
 

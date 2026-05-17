@@ -12,7 +12,7 @@
 <title>Olive CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=11">
-<link rel="stylesheet" href="/style-fx.css?v=11">
+<link rel="stylesheet" href="/style-fx.css?v=12">
 </head>
 <body>
 
@@ -63,8 +63,6 @@
       <button id="menu-btn" class="btn btn-ghost btn-sm" onclick="toggleSidebar()" title="إظهار/إخفاء القائمة">☰</button>
       <div id="pill-nav-row" style="flex:1"></div>
       <div id="topbar-online" class="topbar-online desktop-only"></div>
-      <div id="topbar-user" class="desktop-only" style="text-align:left;margin-left:8px"></div>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">خروج</button>
     </div>
     <div id="content"></div>
   </div>
@@ -91,7 +89,7 @@
 <!-- ═══════════════ SCRIPTS ═══════════════ -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/app.js?v=18"></script>
+<script src="/app.js?v=19"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
