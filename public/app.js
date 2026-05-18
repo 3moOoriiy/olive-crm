@@ -109,8 +109,8 @@ const PERMS = {
   call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
   complaints:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
   supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
-  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
-  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
   warehouse_manager:    ['view:dashboard', 'view:inventory'],
   warehouse_supervisor: ['view:dashboard', 'view:inventory'],
   warehouse_worker:     ['view:dashboard', 'view:inventory'],
@@ -477,7 +477,8 @@ const VIEW_TITLES = {
   moderatorForm:  "فورم الطلبات",
   whatsappChat:   "واتساب",
   staffChat:      "المحادثات",
-  inventory:      "المخزن"
+  inventory:      "المخزن",
+  shipping:       "شركة الشحن"
 };
 
 // ═══════════════ RENDER ALL ═══════════════
@@ -525,6 +526,7 @@ function renderSidebar() {
     { key: "performance",  label: "الأداء",       icon: "🏆", perm: "view:performance" },
     { key: "reports",      label: "التقارير",     icon: "📈", perm: "view:reports" },
     { key: "inventory",    label: "المخزن",       icon: "🏭", perm: "view:inventory" },
+    { key: "shipping",     label: "شركة الشحن",   icon: "🚚", perm: "view:shipping" },
     { key: "settings",     label: "الإعدادات",    icon: "⚙️", perm: "view:settings" },
   ];
   const links = allLinks.filter(l => !l.perm || can(l.perm));
@@ -621,6 +623,7 @@ function renderPillNav() {
     { key: 'performance',   label: 'الأداء',        icon: '🏆', perm: 'view:performance' },
     { key: 'reports',       label: 'التقارير',      icon: '📈', perm: 'view:reports' },
     { key: 'inventory',     label: 'المخزن',        icon: '🏭', perm: 'view:inventory' },
+    { key: 'shipping',      label: 'شركة الشحن',    icon: '🚚', perm: 'view:shipping' },
     { key: 'settings',      label: 'الإعدادات',     icon: '⚙️', perm: 'view:settings' },
   ].filter(it => !it.perm || can(it.perm));
   const activeKey = state.view === 'customerDetail' ? 'customers' : state.view;
@@ -728,11 +731,141 @@ function renderContent() {
   else if (v === "whatsappChat")   el.innerHTML = renderWhatsAppChat();
   else if (v === "staffChat")      el.innerHTML = renderStaffChat();
   else if (v === "inventory")    { el.innerHTML = renderInventory(); loadInventoryFrame(); }
+  else if (v === "shipping")     { el.innerHTML = renderShipping(); loadShippingData(); }
   if (typeof animateCountUps === 'function') animateCountUps();
 }
 
 function renderInventory() {
   return `<iframe id="inventory-frame" src="about:blank" style="width:100%;height:100%;min-height:calc(100vh - 60px);border:0;display:block" title="نظام المخزن"></iframe>`;
+}
+
+// ═══════════════ SHIPPING (J&T EXPRESS) ═══════════════
+const JT_STATUS_LABELS = {
+  '': 'لم يُشحن بعد',
+  created: '📝 تم الإنشاء',
+  wait_print: '⏳ في انتظار الطباعة',
+  printed: '🖨️ مطبوع',
+  picked_up: '📦 تم الاستلام',
+  in_transit: '🚛 في الطريق',
+  delivering: '🛵 جاري التوصيل',
+  signed: '✅ تم التسليم',
+  returning: '↩️ مرتجع',
+};
+
+function renderShipping() {
+  return `<div class="page">
+    <div class="page-header">
+      <div>
+        <h2 style="font-size:20px;font-weight:800">🚚 شركة الشحن (J&T Express)</h2>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px">تتبع الطلبات المشحونة عبر J&T</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="loadShippingData()">🔄 تحديث</button>
+    </div>
+    <div id="ship-status-banner" style="margin-bottom:12px"></div>
+    <div id="ship-list-wrap"><div style="padding:40px;text-align:center;color:var(--muted)">⏳ جاري التحميل...</div></div>
+  </div>`;
+}
+
+async function loadShippingData() {
+  const wrap = document.getElementById('ship-list-wrap');
+  const banner = document.getElementById('ship-status-banner');
+  if (!wrap) return;
+  try {
+    const status = await api('/jt/status');
+    if (!status.configured) {
+      banner.innerHTML = `<div class="alert alert-red">⚠️ J&T API غير مفعّل — اضبط <code>JT_AUTH_TOKEN</code> في الـ .env على السيرفر</div>`;
+    } else {
+      banner.innerHTML = '';
+    }
+    const rows = await api('/jt/orders');
+    state.shippingOrders = rows;
+    renderShippingList(rows);
+  } catch (e) {
+    wrap.innerHTML = `<div class="alert alert-red">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+function renderShippingList(rows) {
+  const wrap = document.getElementById('ship-list-wrap');
+  if (!wrap) return;
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:8px">📭</div>
+      <div>مفيش طلبات متحوّلة لشركة الشحن لسه</div>
+      <div style="font-size:11px;margin-top:6px">ادخل أي طلب مؤكد واضغط "تحويل لشركة الشحن"</div>
+    </div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="card" style="overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead style="background:#f9fafb;border-bottom:1px solid var(--border)">
+          <tr>
+            <th style="text-align:right;padding:10px">#</th>
+            <th style="text-align:right;padding:10px">العميل</th>
+            <th style="text-align:right;padding:10px">المنتج</th>
+            <th style="text-align:right;padding:10px">رقم الشحنة</th>
+            <th style="text-align:right;padding:10px">الحالة</th>
+            <th style="text-align:right;padding:10px">آخر تحديث</th>
+            <th style="text-align:right;padding:10px">إجراء</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(o => `
+            <tr style="border-bottom:1px solid var(--border-light)">
+              <td style="padding:10px;font-weight:700">#${o.id}</td>
+              <td style="padding:10px">${esc(o.customer_name)}<div style="font-size:11px;color:var(--muted)">${esc(o.customer_phone||'')}</div></td>
+              <td style="padding:10px">${esc(o.product_name)} <span style="font-size:11px;color:var(--muted)">×${o.qty}</span></td>
+              <td style="padding:10px;font-family:monospace;direction:ltr">${esc(o.jt_waybill_no)}</td>
+              <td style="padding:10px"><span class="badge" style="background:#dcfce7;color:#166534">${JT_STATUS_LABELS[o.jt_status] || o.jt_status || '—'}</span></td>
+              <td style="padding:10px;font-size:11px;color:var(--muted)">${o.jt_last_sync || '—'}</td>
+              <td style="padding:10px">
+                <button class="btn btn-ghost btn-sm" onclick="syncShipping(${o.id})">🔄 تحديث</button>
+                <button class="btn btn-ghost btn-sm" onclick="showShippingTrack('${esc(o.jt_waybill_no)}')">📍 تتبع</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function syncShipping(orderId) {
+  try {
+    showToast('🔄 جاري التحديث...');
+    await api('/jt/sync/' + orderId, { method: 'POST' });
+    await loadShippingData();
+    showToast('✅ تم التحديث');
+  } catch (e) { alert(e.message); }
+}
+
+async function showShippingTrack(waybill) {
+  try {
+    const data = await api('/jt/track/' + encodeURIComponent(waybill));
+    const tracks = data?.data?.[0]?.details || data?.data?.[0]?.tracks || [];
+    const html = tracks.length ? tracks.map(t => `
+      <div style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--border-light)">
+        <div style="width:8px;height:8px;background:#22c55e;border-radius:50%;margin-top:6px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">${esc(t.scanType || t.statusName || 'تحديث')}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(t.scanTime || t.time || '')}</div>
+          ${t.remark || t.message ? `<div style="font-size:12px;margin-top:4px">${esc(t.remark || t.message)}</div>` : ''}
+          ${t.scanNetwork || t.location ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${esc(t.scanNetwork || t.location)}</div>` : ''}
+        </div>
+      </div>
+    `).join('') : '<div style="padding:20px;text-align:center;color:var(--muted)">مفيش تحديثات حركة لسه</div>';
+    openModal(`📍 تتبع الشحنة ${waybill}`, html, `<button class="btn btn-primary" onclick="closeModal()">إغلاق</button>`);
+  } catch (e) { alert(e.message); }
+}
+
+async function shipOrderToJT(orderId) {
+  if (!confirm('هل أنت متأكد من تحويل هذا الطلب لشركة الشحن J&T؟')) return;
+  try {
+    const r = await api('/jt/ship/' + orderId, { method: 'POST', body: {} });
+    showToast('✅ تم تحويل الطلب! رقم الشحنة: ' + r.waybill);
+    closeModal();
+    if (typeof loadViewData === 'function') await loadViewData();
+    renderContent();
+  } catch (e) { alert('فشل التحويل: ' + e.message); }
 }
 
 async function loadInventoryFrame() {
@@ -1079,6 +1212,10 @@ function renderCustomerDetail() {
               </div>
               <div class="flex gap6" style="align-items:center">
                 <span class="badge" style="background:${o.status === 'تم التسليم' ? '#dcfce7' : o.status === 'مرتجع' ? '#fee2e2' : '#dbeafe'};color:${o.status === 'تم التسليم' ? '#166534' : o.status === 'مرتجع' ? '#dc2626' : '#1e40af'}">${esc(o.status)}</span>
+                ${o.jt_waybill_no
+                  ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="رقم الشحنة: ${esc(o.jt_waybill_no)}">🚚 ${esc(JT_STATUS_LABELS[o.jt_status] || o.jt_status || 'مشحون')}</span>`
+                  : `<button class="btn btn-sm" style="background:#1e4d0f;color:#fff;border:0;padding:4px 10px;font-size:11px" onclick="shipOrderToJT(${o.id})" title="تحويل لشركة الشحن J&T">🚚 تحويل لشركة الشحن</button>`
+                }
                 <button class="btn btn-ghost btn-sm" onclick="printInvoice(${o.id})" title="طباعة فاتورة">🖨️</button>
               </div>
             </div>
@@ -1864,7 +2001,14 @@ function openAddComplaintModal() {
       <option value="in_progress">قيد المعالجة</option>
       <option value="resolved">تم الحل</option>
       <option value="closed">مغلقة</option>
-    </select></div>`,
+    </select></div>
+    <div class="form-group" style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="comp-send-jt">
+        <span style="font-weight:700">🚚 ارفع الشكوى أيضاً على شركة الشحن J&T</span>
+      </label>
+      <p style="font-size:11px;color:#166534;margin-top:4px">يستلزم رقم شحنة صحيح في الحقل أعلاه</p>
+    </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveNewComplaint()">💾 حفظ</button>`);
 }
 
@@ -1881,16 +2025,32 @@ async function searchComplaintCustomer(query) {
 
 async function saveNewComplaint() {
   try {
-    await api('/complaints', { method: 'POST', body: {
+    const shipNo = document.getElementById("comp-ship")?.value || '';
+    const desc   = document.getElementById("comp-feedback")?.value || '';
+    const sendToJT = document.getElementById("comp-send-jt")?.checked;
+    const created = await api('/complaints', { method: 'POST', body: {
       customer_id:      parseInt(document.getElementById("comp-cust")?.value) || null,
-      shipment_number:  document.getElementById("comp-ship")?.value || '',
+      shipment_number:  shipNo,
       complaint_number: document.getElementById("comp-num")?.value || '',
       complaint_type:   document.getElementById("comp-type")?.value,
-      feedback:         document.getElementById("comp-feedback")?.value || '',
+      feedback:         desc,
       status:           document.getElementById("comp-status")?.value || 'open'
     }});
+    if (sendToJT && shipNo) {
+      try {
+        const r = await api('/jt/complaint', { method: 'POST', body: {
+          waybillNo: shipNo,
+          description: desc,
+          localComplaintId: created?.id,
+        }});
+        showToast('✅ تم رفع الشكوى على J&T — رقم: ' + (r.workOrderNo || '—'));
+      } catch (jtErr) {
+        showToast('⚠️ الشكوى اتسجلت محلياً بس فشل رفعها على J&T: ' + jtErr.message);
+      }
+    } else {
+      showToast('تم إضافة الشكوى');
+    }
     closeModal();
-    showToast('تم إضافة الشكوى');
     state._complaints = null;
     loadComplaintsPage(state.complaintsPage);
   } catch (e) { alert(e.message); }

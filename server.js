@@ -11,6 +11,7 @@ const { initDB, getDB, normalizePhone } = require('./db');
 const jwt = require('jsonwebtoken');
 const { loginHandler, requireAuth, requireRole, requirePermission, PERMISSIONS, JWT_SECRET } = require('./auth');
 const { initWhatsApp, getStatus, sendMessage } = require('./whatsapp');
+const jt = require('./jt');
 
 // ═══════════════ CONSTANTS ═══════════════
 const VALID_STATUSES = ['first_attempt', 'second_attempt', 'third_attempt', 'confirmed', 'rejected', 'waiting_transfer', 'postponed', 'shipped', 'duplicate'];
@@ -1234,6 +1235,126 @@ io.on('connection', (socket) => {
       io.emit('users:online', getOnlineUsersList());
     }
   });
+});
+
+// ═══════════════ J&T EXPRESS EGYPT ═══════════════
+app.get('/api/jt/status', requireAuth, (req, res) => {
+  res.json({ configured: jt.isConfigured() });
+});
+
+// Ship a CRM order via J&T (creates the waybill)
+app.post('/api/jt/ship/:orderId', requireAuth, requirePermission('orders:manage'), async (req, res) => {
+  try {
+    const db = getDB();
+    const orderId = parseInt(req.params.orderId, 10);
+    const order = db.get(`
+      SELECT o.*, c.name as customer_name, c.phone as customer_phone, c.region, c.address as customer_address
+      FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.id = ?`, [orderId]);
+    if (!order) return res.status(404).json({ error: 'الطلب غير موجود' });
+    if (order.jt_waybill_no) {
+      return res.status(409).json({ error: 'الطلب تم شحنه مسبقاً', waybill: order.jt_waybill_no });
+    }
+
+    const sender = jt.defaultSender();
+    const body = {
+      ...sender,
+      receiverName: order.customer_name,
+      receiverPhone: order.customer_phone,
+      receiverProvince: order.region || '',
+      receiverCity: order.region || '',
+      receiverArea: '',
+      receiverStreet: order.address || order.customer_address || '',
+      customerOrderId: String(order.id),
+      itemName: order.product_name,
+      itemType: req.body.itemType || 'PARCEL',
+      weight: parseFloat(req.body.weight) || 1.0,
+      itemValue: order.total,
+      totalCod: req.body.totalCod !== undefined ? req.body.totalCod : order.total,
+      remarkInfo: req.body.remarkInfo || `كمية: ${order.qty}`,
+    };
+
+    const result = await jt.saveOrder(body);
+    const waybill = result?.data?.waybillNo || result?.data?.waybillId || result?.waybillNo || result?.data?.[0]?.waybillNo || '';
+
+    db.run(
+      `UPDATE orders SET jt_waybill_no = ?, jt_status = ?, jt_last_sync = datetime('now') WHERE id = ?`,
+      [waybill, 'created', orderId]
+    );
+    res.json({ ok: true, waybill, raw: result });
+  } catch (err) {
+    console.error('JT ship error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Track a waybill (live from J&T)
+app.get('/api/jt/track/:waybill', requireAuth, async (req, res) => {
+  try {
+    const data = await jt.trackByWaybillNo([req.params.waybill]);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List local CRM orders that have been shipped via J&T
+app.get('/api/jt/orders', requireAuth, (req, res) => {
+  const db = getDB();
+  const rows = db.all(`
+    SELECT o.id, o.product_name, o.qty, o.total, o.status, o.address, o.created_at,
+           o.jt_waybill_no, o.jt_status, o.jt_last_sync,
+           c.name AS customer_name, c.phone AS customer_phone, c.region
+    FROM orders o JOIN customers c ON o.customer_id = c.id
+    WHERE o.jt_waybill_no IS NOT NULL AND o.jt_waybill_no != ''
+    ORDER BY o.id DESC LIMIT 500`);
+  res.json(rows);
+});
+
+// Refresh tracking for one waybill — saves latest status + raw JSON
+app.post('/api/jt/sync/:orderId', requireAuth, async (req, res) => {
+  try {
+    const db = getDB();
+    const orderId = parseInt(req.params.orderId, 10);
+    const order = db.get(`SELECT id, jt_waybill_no FROM orders WHERE id = ?`, [orderId]);
+    if (!order || !order.jt_waybill_no) return res.status(404).json({ error: 'هذا الطلب غير مشحون عبر J&T' });
+    const data = await jt.trackByWaybillNo([order.jt_waybill_no]);
+    const tracks = data?.data?.[0]?.details || data?.data?.[0]?.tracks || [];
+    const latest = tracks[0]?.scanType || tracks[0]?.statusName || data?.data?.[0]?.statusName || 'updated';
+    db.run(
+      `UPDATE orders SET jt_status = ?, jt_last_sync = datetime('now'), jt_tracking_json = ? WHERE id = ?`,
+      [String(latest), JSON.stringify(data), orderId]
+    );
+    res.json({ ok: true, status: latest, raw: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Complaint types (J&T firstType list)
+app.get('/api/jt/complaint-types', requireAuth, async (req, res) => {
+  try {
+    const data = await jt.workOrderFirstTypes();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create complaint on J&T (and optionally link to a local complaint row)
+app.post('/api/jt/complaint', requireAuth, requirePermission('complaints:manage'), async (req, res) => {
+  try {
+    const { waybillNo, firstTypeId, secondTypeId, description, customerOrderId, localComplaintId } = req.body;
+    if (!waybillNo) return res.status(400).json({ error: 'waybillNo مطلوب' });
+    const data = await jt.workOrderSave({ waybillNo, firstTypeId, secondTypeId, description, customerOrderId });
+    const workOrderNo = data?.data?.workOrderNo || data?.workOrderNo || '';
+    if (localComplaintId) {
+      const db = getDB();
+      db.run(`UPDATE complaints SET jt_work_order_no = ? WHERE id = ?`, [workOrderNo, localComplaintId]);
+    }
+    res.json({ ok: true, workOrderNo, raw: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ═══════════════ START ═══════════════

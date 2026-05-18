@@ -115,6 +115,11 @@ async function initDB() {
   try { db.run(`ALTER TABLE orders ADD COLUMN moderator_name TEXT DEFAULT ''`); } catch(e) {}
   try { db.run(`ALTER TABLE orders ADD COLUMN instapay_image TEXT DEFAULT ''`); } catch(e) {}
   try { db.run(`ALTER TABLE orders ADD COLUMN created_by INTEGER REFERENCES users(id)`); } catch(e) {}
+  // J&T integration columns
+  try { db.run(`ALTER TABLE orders ADD COLUMN jt_waybill_no TEXT DEFAULT ''`); } catch(e) {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN jt_status TEXT DEFAULT ''`); } catch(e) {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN jt_last_sync TEXT DEFAULT ''`); } catch(e) {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN jt_tracking_json TEXT DEFAULT ''`); } catch(e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -159,6 +164,8 @@ async function initDB() {
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_complaints_customer ON complaints(customer_id)`);
+  // J&T complaints integration
+  try { db.run(`ALTER TABLE complaints ADD COLUMN jt_work_order_no TEXT DEFAULT ''`); } catch(e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS staff_messages (
