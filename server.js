@@ -1381,35 +1381,90 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
       customerId = result.lastInsertRowid;
     }
 
-    // ─── Create one order row (groups all items) ───
+    // ─── Build resolved items ───
     let orderId = null;
+    let merged = false;
     if (items.length) {
-      const resolved = items.map(it => ({
+      const newItems = items.map(it => ({
         productId: 0,
         productName: it.productName,
         qty: it.qty,
         price: it.price,
         total: it.price * it.qty,
       }));
-      const grand = resolved.reduce((s, it) => s + it.total, 0);
-      const totalQty = resolved.reduce((s, it) => s + it.qty, 0);
-      const first = resolved[0];
-      const productNameSummary = resolved.length === 1
-        ? first.productName
-        : `${first.productName} +${resolved.length - 1} منتجات`;
-      const itemsJson = resolved.length > 1 ? JSON.stringify(resolved) : '';
 
-      const orderResult = db.run(`
-        INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, items_json, created_at)
-        VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, 'website', ?, datetime('now'))
-      `, [customerId, productNameSummary, totalQty, first.price, grand, address, itemsJson]);
-      orderId = orderResult.lastInsertRowid;
+      // Auto-merge: look for an existing website order from this customer in the
+      // last 15 minutes that's still 'جديد' — append items to it instead of
+      // creating a separate order (handles sites that POST each item as its own
+      // request).
+      const MERGE_WINDOW_MIN = 15;
+      const recent = db.get(`
+        SELECT * FROM orders
+        WHERE customer_id = ?
+          AND source = 'website'
+          AND status = 'جديد'
+          AND created_at >= datetime('now', '-${MERGE_WINDOW_MIN} minutes')
+        ORDER BY id DESC LIMIT 1
+      `, [customerId]);
 
-      const tlLabels = resolved.map(it => `${it.productName} × ${it.qty}`).join(' • ');
-      db.run(`
-        INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
-        VALUES (?, 'order', ?, '🌐', 'الموقع الإلكتروني', datetime('now'))
-      `, [customerId, `طلب جديد من الموقع: ${tlLabels} — إجمالي ${grand} جنيه`]);
+      if (recent) {
+        // Parse existing items (fall back to legacy single-row)
+        let existingItems = [];
+        if (recent.items_json) {
+          try { existingItems = JSON.parse(recent.items_json) || []; } catch (_) {}
+        }
+        if (!existingItems.length) {
+          existingItems = [{
+            productId: recent.product_id || 0,
+            productName: recent.product_name,
+            qty: recent.qty,
+            price: recent.price,
+            total: recent.total,
+          }];
+        }
+        const allItems = [...existingItems, ...newItems];
+        const grand = allItems.reduce((s, it) => s + it.total, 0);
+        const totalQty = allItems.reduce((s, it) => s + it.qty, 0);
+        const first = allItems[0];
+        const productNameSummary = allItems.length === 1
+          ? first.productName
+          : `${first.productName} +${allItems.length - 1} منتجات`;
+
+        db.run(`
+          UPDATE orders SET product_name = ?, qty = ?, price = ?, total = ?, items_json = ?
+          WHERE id = ?
+        `, [productNameSummary, totalQty, first.price, grand, JSON.stringify(allItems), recent.id]);
+
+        orderId = recent.id;
+        merged = true;
+
+        const tlLabels = newItems.map(it => `${it.productName} × ${it.qty}`).join(' • ');
+        db.run(`
+          INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
+          VALUES (?, 'order', ?, '🌐', 'الموقع الإلكتروني', datetime('now'))
+        `, [customerId, `إضافة لطلب موجود: ${tlLabels} — إجمالي جديد ${grand} جنيه`]);
+      } else {
+        // Fresh order
+        const grand = newItems.reduce((s, it) => s + it.total, 0);
+        const totalQty = newItems.reduce((s, it) => s + it.qty, 0);
+        const first = newItems[0];
+        const productNameSummary = newItems.length === 1
+          ? first.productName
+          : `${first.productName} +${newItems.length - 1} منتجات`;
+        const itemsJson = newItems.length > 1 ? JSON.stringify(newItems) : '';
+
+        const orderResult = db.run(`
+          INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, items_json, created_at)
+          VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, 'website', ?, datetime('now'))
+        `, [customerId, productNameSummary, totalQty, first.price, grand, address, itemsJson]);
+        orderId = orderResult.lastInsertRowid;
+
+        const tlLabels = newItems.map(it => `${it.productName} × ${it.qty}`).join(' • ');
+        db.run(`
+          INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
+          VALUES (?, 'order', ?, '🌐', 'الموقع الإلكتروني', datetime('now'))
+        `, [customerId, `طلب جديد من الموقع: ${tlLabels} — إجمالي ${grand} جنيه`]);
+      }
     }
 
     // ─── Notify connected CRM users via socket ───
@@ -1423,7 +1478,10 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
       ok: true,
       customerId,
       orderId,
-      message: orderId ? 'تم إنشاء العميل والطلب' : 'تم إنشاء العميل',
+      merged,
+      message: !orderId ? 'تم إنشاء العميل'
+        : merged ? 'تم إضافة المنتج لطلب موجود'
+        : 'تم إنشاء العميل والطلب',
     });
   } catch (err) {
     console.error('Integration order error:', err);
