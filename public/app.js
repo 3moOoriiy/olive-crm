@@ -567,7 +567,33 @@ function renderTopbar() {
   if (titleEl) titleEl.textContent = title;
   const userEl = document.getElementById("topbar-user");
   if (userEl) userEl.innerHTML = `<div style="font-size:12px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted)">${ROLE_LABELS[u.role]}</div>`;
+  renderTopbarActions();
   renderPillNav();
+}
+
+function renderTopbarActions() {
+  const el = document.getElementById('topbar-actions');
+  if (!el) return;
+  const u = state.currentUser;
+  if (!u) { el.innerHTML = ''; return; }
+  const initials = u.avatar_initials || (u.name || '').slice(0, 2);
+  const roleLabel = ROLE_LABELS[u.role] || '';
+  el.innerHTML = `
+    <button class="fx-wa-chip ${waConnected ? 'connected' : 'disconnected'}"
+      onclick="${waConnected ? '' : 'showQRModal()'}"
+      title="${waConnected ? 'واتساب متصل' : 'اضغط لربط واتساب'}">
+      <span class="fx-wa-dot"></span>
+      <span class="fx-wa-text">${waConnected ? 'واتساب' : 'غير متصل'}</span>
+    </button>
+    <div class="fx-user-card" title="${esc(u.name)} • ${roleLabel}">
+      <div class="fx-user-avatar" style="background:${u.color ? `linear-gradient(135deg, ${u.color}, ${u.color}cc)` : ''}">${esc(initials)}</div>
+      <div class="fx-user-info">
+        <div class="fx-user-name">${esc(u.name)}</div>
+        <div class="fx-user-role">${roleLabel}</div>
+      </div>
+    </div>
+    <button class="fx-logout-btn" onclick="logout()" title="تسجيل الخروج">⏻</button>
+  `;
 }
 
 // ═══════════════ PILL NAV (CRM quick-access bar) ═══════════════
@@ -1758,19 +1784,24 @@ function renderWhatsAppChat() {
 // ═══════════════ SETTINGS ═══════════════
 // ═══════════════ MODERATOR FORM (TAB) ═══════════════
 function renderModeratorForm() {
-  const productOpts = state.products.filter(p => p.is_active).map(p => `<option value="${p.id}" data-price="${p.price}">${esc(p.name)} — ${p.price} جنيه</option>`).join('');
+  const firstProduct = state.products.filter(p => p.is_active)[0];
+  state._mfItems = [{ productId: firstProduct?.id, qty: 1, price: firstProduct?.price || 0 }];
   return `<div class="page">
-  <div class="card" style="padding:24px;max-width:700px;margin:0 auto">
-    <h2 style="font-size:18px;font-weight:800;text-align:center;margin-bottom:20px;color:var(--primary)">📝 إضافة طلب جديد</h2>
+  <div class="card" style="padding:24px;max-width:780px;margin:0 auto">
+    <h2 style="font-size:20px;font-weight:800;text-align:center;margin-bottom:20px;color:var(--primary)">📝 إضافة طلب جديد</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="form-group" style="grid-column:1/-1"><label>اسم العميل *</label><input id="mf-name" type="text" placeholder="الاسم الكامل"></div>
       <div class="form-group"><label>رقم الهاتف *</label><input id="mf-phone" type="tel" placeholder="01xxxxxxxxx"></div>
       <div class="form-group"><label>رقم بديل</label><input id="mf-phone2" type="tel" placeholder="01xxxxxxxxx"></div>
       <div class="form-group" style="grid-column:1/-1"><label>العنوان *</label><input id="mf-address" type="text" placeholder="المحافظة — المنطقة — الشارع — رقم العمارة..."></div>
-      <div class="form-group"><label>المنتج *</label><select id="mf-product" onchange="updateMFPrice()">${productOpts}</select></div>
-      <div class="form-group"><label>الكمية</label><input id="mf-qty" type="number" min="1" value="1" oninput="updateMFPrice()"></div>
-      <div class="form-group"><label>السعر (جنيه)</label><input id="mf-price" type="number" min="0" oninput="updateMFTotal()"></div>
-      <div class="form-group"><label>الإجمالي</label><input id="mf-total" type="number" min="0" readonly style="background:#f3f4f6;font-weight:700"></div>
+    </div>
+    <div style="margin-top:14px">
+      <div style="font-weight:800;font-size:14px;margin-bottom:10px">🛒 المنتجات</div>
+      <div id="mf-items"></div>
+      <button type="button" class="btn btn-ghost" onclick="addMFItem()" style="border:1px dashed var(--border);width:100%;padding:12px;margin-top:4px">➕ إضافة منتج آخر</button>
+      <div id="mf-grandtotal" style="padding:14px 16px;background:#f0fdf4;border-radius:10px;display:flex;justify-content:space-between;font-size:15px;margin-top:12px"><span>الإجمالي الكلي:</span><span style="font-weight:800;color:#166534">0 جنيه</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
       <div class="form-group"><label>كود المودوريتور</label><input id="mf-code" type="text" placeholder="كود المودوريتور"></div>
       <div class="form-group"><label>اسم المودوريتور</label><input id="mf-modname" type="text" placeholder="اسم المودوريتور" value="${esc(state.currentUser?.name || '')}"></div>
       <div class="form-group" style="grid-column:1/-1"><label>صورة انستاباي (اختياري)</label><input id="mf-instapay" type="file" accept="image/*" onchange="previewMFInstapay(event)"></div>
@@ -1783,33 +1814,65 @@ function renderModeratorForm() {
 }
 
 function initMFPrice() {
-  setTimeout(() => {
-    updateMFPrice();
-  }, 50);
+  setTimeout(() => renderMFItems(), 50);
 }
 
-function updateMFPrice() {
-  const sel = document.getElementById('mf-product');
-  const qtyEl = document.getElementById('mf-qty');
-  const priceEl = document.getElementById('mf-price');
-  const totalEl = document.getElementById('mf-total');
-  if (!sel || !qtyEl || !priceEl || !totalEl) return;
-  const opt = sel.options[sel.selectedIndex];
-  const basePrice = parseFloat(opt?.dataset?.price) || 0;
-  const qty = parseInt(qtyEl.value) || 1;
-  if (!priceEl.dataset.userEdited) {
-    priceEl.value = basePrice;
-  }
-  totalEl.value = (parseFloat(priceEl.value) || 0) * qty;
+function renderMFItems() {
+  const wrap = document.getElementById('mf-items');
+  if (!wrap) return;
+  const items = state._mfItems || [];
+  wrap.innerHTML = items.map((it, i) => `
+    <div class="card" style="padding:10px;margin-bottom:8px;display:grid;grid-template-columns:1fr 80px 100px 38px;gap:8px;align-items:end">
+      <div><label style="font-size:11px;color:var(--muted);font-weight:700">المنتج ${i + 1}</label>
+        <select onchange="updateMFItem(${i},'productId',this.value);recalcMFItem(${i});updateMFGrandTotal()">
+          ${state.products.filter(p => p.is_active).map(p => `<option value="${p.id}" data-price="${p.price}" ${String(it.productId) === String(p.id) ? 'selected' : ''}>${esc(p.name)} — ${p.price} ج</option>`).join('')}
+        </select>
+      </div>
+      <div><label style="font-size:11px;color:var(--muted);font-weight:700">الكمية</label>
+        <input type="number" min="1" value="${it.qty || 1}" oninput="updateMFItem(${i},'qty',this.value);updateMFGrandTotal()">
+      </div>
+      <div><label style="font-size:11px;color:var(--muted);font-weight:700">السعر</label>
+        <input type="number" min="0" value="${it.price || 0}" oninput="updateMFItem(${i},'price',this.value);updateMFGrandTotal()">
+      </div>
+      <button type="button" onclick="removeMFItem(${i})" title="حذف" style="background:#fee2e2;color:#dc2626;border:0;border-radius:8px;height:42px;cursor:pointer;font-size:14px" ${items.length === 1 ? 'disabled style="opacity:.3"' : ''}>🗑️</button>
+    </div>`).join('');
+  updateMFGrandTotal();
 }
 
-function updateMFTotal() {
-  const priceEl = document.getElementById('mf-price');
-  const qtyEl = document.getElementById('mf-qty');
-  const totalEl = document.getElementById('mf-total');
-  if (!priceEl || !qtyEl || !totalEl) return;
-  priceEl.dataset.userEdited = 'true';
-  totalEl.value = (parseFloat(priceEl.value) || 0) * (parseInt(qtyEl.value) || 1);
+function addMFItem() {
+  const firstProduct = state.products.filter(p => p.is_active)[0];
+  state._mfItems = state._mfItems || [];
+  state._mfItems.push({ productId: firstProduct?.id, qty: 1, price: firstProduct?.price || 0 });
+  renderMFItems();
+}
+
+function removeMFItem(idx) {
+  if (state._mfItems.length <= 1) return;
+  state._mfItems.splice(idx, 1);
+  renderMFItems();
+}
+
+function updateMFItem(idx, key, val) {
+  if (!state._mfItems[idx]) return;
+  if (key === 'qty') state._mfItems[idx].qty = parseInt(val) || 1;
+  else if (key === 'price') state._mfItems[idx].price = parseFloat(val) || 0;
+  else state._mfItems[idx][key] = val;
+}
+
+function recalcMFItem(idx) {
+  const it = state._mfItems[idx];
+  if (!it) return;
+  const p = state.products.find(p => String(p.id) === String(it.productId));
+  if (p) it.price = p.price;
+  renderMFItems();
+}
+
+function updateMFGrandTotal() {
+  const items = state._mfItems || [];
+  let total = 0;
+  items.forEach(it => { total += (parseFloat(it.price) || 0) * (parseInt(it.qty) || 1); });
+  const el = document.getElementById("mf-grandtotal");
+  if (el) el.innerHTML = `<span>الإجمالي الكلي:</span><span style="font-weight:800;color:#166534">${total} جنيه</span>`;
 }
 
 function previewMFInstapay(event) {
@@ -1827,14 +1890,23 @@ async function submitModeratorForm() {
   const name = document.getElementById('mf-name')?.value.trim();
   const phone = document.getElementById('mf-phone')?.value.trim();
   const address = document.getElementById('mf-address')?.value.trim();
-  const productId = document.getElementById('mf-product')?.value;
 
   if (!name) { alert('اسم العميل مطلوب'); return; }
   if (!phone) { alert('رقم الهاتف مطلوب'); return; }
   if (!address) { alert('العنوان مطلوب'); return; }
 
-  const productSel = document.getElementById('mf-product');
-  const productName = productSel?.options[productSel.selectedIndex]?.text?.split(' — ')[0] || '';
+  const items = (state._mfItems || []).filter(it => it.productId && it.qty > 0);
+  if (!items.length) { alert('ضيف منتج واحد على الأقل'); return; }
+
+  const itemsWithNames = items.map(it => {
+    const p = state.products.find(p => String(p.id) === String(it.productId));
+    return {
+      product_id: parseInt(it.productId),
+      product_name: p?.name || '',
+      qty: parseInt(it.qty) || 1,
+      price: parseFloat(it.price) || 0,
+    };
+  });
 
   let instapayImage = '';
   const fileInput = document.getElementById('mf-instapay');
@@ -1856,11 +1928,7 @@ async function submitModeratorForm() {
       customer_phone: phone,
       customer_phone2: document.getElementById('mf-phone2')?.value || '',
       customer_address: address,
-      product_id: parseInt(productId),
-      product_name: productName,
-      qty: parseInt(document.getElementById('mf-qty')?.value) || 1,
-      price: parseFloat(document.getElementById('mf-price')?.value) || 0,
-      total: parseFloat(document.getElementById('mf-total')?.value) || 0,
+      items: itemsWithNames,
       moderator_code: document.getElementById('mf-code')?.value || '',
       moderator_name: document.getElementById('mf-modname')?.value || '',
       instapay_image: instapayImage
@@ -1880,18 +1948,15 @@ async function submitModeratorForm() {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    const qtyEl = document.getElementById('mf-qty');
-    if (qtyEl) qtyEl.value = '1';
-    const priceEl = document.getElementById('mf-price');
-    if (priceEl) { priceEl.value = ''; delete priceEl.dataset.userEdited; }
-    const totalEl = document.getElementById('mf-total');
-    if (totalEl) totalEl.value = '';
     const fileEl = document.getElementById('mf-instapay');
     if (fileEl) fileEl.value = '';
     const previewEl = document.getElementById('mf-instapay-preview');
     if (previewEl) previewEl.innerHTML = '';
 
-    updateMFPrice();
+    // Reset items list
+    const firstProduct = state.products.filter(p => p.is_active)[0];
+    state._mfItems = [{ productId: firstProduct?.id, qty: 1, price: firstProduct?.price || 0 }];
+    renderMFItems();
 
     if (btn) { btn.disabled = false; btn.textContent = '📦 حفظ الطلب'; }
     setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 4000);
@@ -2687,7 +2752,7 @@ function showQRModal() {
       if (!document.getElementById('qr-container')) { clearInterval(qrPollTimer); qrPollTimer = null; return; }
       if (status.connected) {
         waConnected = true;
-        renderSidebar();
+        renderSidebar(); renderTopbarActions();
         if (state.view === 'settings') renderContent();
         container.innerHTML = `<div style="font-size:40px;margin-bottom:10px">✅</div><p style="color:#16a34a;font-weight:700">واتساب متصل بالفعل!</p>`;
         clearInterval(qrPollTimer); qrPollTimer = null;
@@ -3579,7 +3644,7 @@ socket.on('staff:message:new', (msg) => {
 socket.on('whatsapp:qr', ({ qrDataUrl }) => {
   waConnected = false;
   latestQR    = qrDataUrl;
-  renderSidebar();
+  renderSidebar(); renderTopbarActions();
   const container = document.getElementById('qr-container');
   if (container) {
     container.innerHTML = `<img src="${qrDataUrl}" style="max-width:280px;border-radius:12px"><p style="margin-top:12px;color:var(--muted);font-size:12px">امسح الرمز بتطبيق واتساب من هاتفك</p>`;
@@ -3598,7 +3663,7 @@ socket.on('whatsapp:authenticated', () => {
 
 socket.on('whatsapp:ready', ({ phoneNumber }) => {
   waConnected = true;
-  renderSidebar();
+  renderSidebar(); renderTopbarActions();
   if (state.view === 'settings') renderContent();
   showToast('✅ تم ربط الواتساب بنجاح!');
   const container = document.getElementById('qr-container');
@@ -3610,7 +3675,7 @@ socket.on('whatsapp:ready', ({ phoneNumber }) => {
 
 socket.on('whatsapp:disconnected', () => {
   waConnected = false;
-  renderSidebar();
+  renderSidebar(); renderTopbarActions();
   showToast('واتساب انقطع الاتصال', 'error');
 });
 

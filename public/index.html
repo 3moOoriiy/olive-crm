@@ -13,6 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=11">
 <link rel="stylesheet" href="/style-fx.css?v=15">
+<link rel="stylesheet" href="/style-premium.css?v=1">
 </head>
 <body>
 
@@ -60,9 +61,17 @@
   <!-- Main Area -->
   <div id="main">
     <div id="topbar">
+      <div class="fx-brand">
+        <div class="fx-brand-mark">🫒</div>
+        <div class="fx-brand-text">
+          <div class="fx-brand-name">Olive CRM</div>
+          <div class="fx-brand-tag">إدارة الأعمال</div>
+        </div>
+      </div>
       <button id="menu-btn" class="btn btn-ghost btn-sm" onclick="toggleSidebar()" title="إظهار/إخفاء القائمة">☰</button>
       <div id="pill-nav-row" style="flex:1"></div>
       <div id="topbar-online" class="topbar-online"></div>
+      <div id="topbar-actions" class="fx-topbar-actions"></div>
     </div>
     <div id="content"></div>
   </div>
@@ -89,7 +98,7 @@
 <!-- ═══════════════ SCRIPTS ═══════════════ -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/app.js?v=26"></script>
+<script src="/app.js?v=28"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
