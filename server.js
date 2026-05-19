@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const { loginHandler, requireAuth, requireRole, requirePermission, PERMISSIONS, JWT_SECRET } = require('./auth');
 const { initWhatsApp, getStatus, sendMessage } = require('./whatsapp');
 const jt = require('./jt');
+const cors = require('cors');
 
 // ═══════════════ CONSTANTS ═══════════════
 const VALID_STATUSES = ['first_attempt', 'second_attempt', 'third_attempt', 'confirmed', 'rejected', 'waiting_transfer', 'postponed', 'shipped', 'duplicate'];
@@ -25,6 +26,15 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.json({ limit: '10mb' }));
+
+// ═══════════════ CORS — only on /api/integrations/* (public webhook) ═══════════════
+const corsMiddleware = cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+});
+app.use('/api/integrations', corsMiddleware);
+app.options('/api/integrations/*', corsMiddleware);
 // Disable browser caching for CRM static files (not /inventory which is versioned)
 app.use((req, res, next) => {
   if (!req.path.startsWith('/inventory') && (req.path === '/' ||
@@ -1235,6 +1245,101 @@ io.on('connection', (socket) => {
       io.emit('users:online', getOnlineUsersList());
     }
   });
+});
+
+// ═══════════════ PUBLIC INTEGRATIONS (CORS-enabled webhook) ═══════════════
+// Accepts new orders from external websites/landing pages.
+// Authenticate by X-API-Key header or apiKey query/body field.
+// Set INTEGRATION_API_KEY in .env to enable.
+
+function requireApiKey(req, res, next) {
+  const expected = process.env.INTEGRATION_API_KEY;
+  if (!expected) {
+    return res.status(503).json({ error: 'INTEGRATION_API_KEY غير معرّف على السيرفر' });
+  }
+  const provided =
+    req.headers['x-api-key'] ||
+    req.query.apiKey ||
+    (req.body && req.body.apiKey);
+  if (!provided || provided !== expected) {
+    return res.status(401).json({ error: 'API key غير صحيح' });
+  }
+  next();
+}
+
+app.get('/api/integrations/ping', (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
+});
+
+app.post('/api/integrations/orders', requireApiKey, (req, res) => {
+  try {
+    const db = getDB();
+    const b = req.body || {};
+
+    // ─── Required customer fields ───
+    const name = (b.name || b.customerName || b.customer_name || '').trim();
+    const phoneRaw = (b.phone || b.customerPhone || b.customer_phone || '').trim();
+    if (!name || !phoneRaw) {
+      return res.status(400).json({ error: 'name و phone مطلوبين' });
+    }
+    const phone = normalizePhone(phoneRaw);
+
+    // ─── Optional fields ───
+    const region   = (b.region || b.governorate || '').trim();
+    const address  = (b.address || '').trim();
+    const source   = (b.source || 'موقع خارجي').trim();
+    const notes    = (b.notes || '').trim();
+
+    // ─── Order fields (optional) ───
+    const productName = (b.productName || b.product_name || b.product || '').trim();
+    const qty   = parseInt(b.qty || b.quantity || 1, 10) || 1;
+    const price = parseFloat(b.price || 0) || 0;
+    const total = parseFloat(b.total || (price * qty)) || 0;
+
+    // ─── Find or create customer ───
+    let customer = db.get('SELECT id FROM customers WHERE phone = ?', [phone]);
+    let customerId;
+    if (customer) {
+      customerId = customer.id;
+      // update region/address if newly provided
+      if (region || address) {
+        db.run(`UPDATE customers SET region = COALESCE(NULLIF(?, ''), region), address = COALESCE(NULLIF(?, ''), address) WHERE id = ?`, [region, address, customerId]);
+      }
+    } else {
+      const result = db.run(`
+        INSERT INTO customers (name, phone, region, address, source, notes, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'first_attempt', datetime('now'))
+      `, [name, phone, region, address, source, notes]);
+      customerId = result.lastInsertRowid;
+    }
+
+    // ─── Create order if product info provided ───
+    let orderId = null;
+    if (productName) {
+      const orderResult = db.run(`
+        INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, created_at)
+        VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, datetime('now'))
+      `, [customerId, productName, qty, price, total, address]);
+      orderId = orderResult.lastInsertRowid;
+    }
+
+    // ─── Notify connected CRM users via socket ───
+    try {
+      io.emit('integration:new_order', {
+        customerId, orderId, name, phone, productName, total, source,
+      });
+    } catch (_) {}
+
+    res.status(201).json({
+      ok: true,
+      customerId,
+      orderId,
+      message: orderId ? 'تم إنشاء العميل والطلب' : 'تم إنشاء العميل',
+    });
+  } catch (err) {
+    console.error('Integration order error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ═══════════════ J&T EXPRESS EGYPT ═══════════════
