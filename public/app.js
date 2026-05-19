@@ -225,8 +225,14 @@ async function doLogin() {
     const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password: pass } });
     localStorage.setItem(TOKEN_KEY, token);
     state.currentUser = user;
-    document.getElementById("login-screen").classList.add("hidden");
-    document.getElementById("app").classList.remove("hidden");
+    // Bulletproof: both class AND inline style — wins over any CSS specificity
+    const loginEl = document.getElementById("login-screen");
+    const appEl   = document.getElementById("app");
+    loginEl.classList.add("hidden");
+    loginEl.style.display = "none";
+    appEl.classList.remove("hidden");
+    appEl.style.display = "";
+    window.scrollTo(0, 0);
     restoreSidebarState();
     await loadAppData();
     identifySocket();
@@ -244,8 +250,12 @@ function logout() {
   state.currentUser = null;
   state.view = "dashboard";
   state.selectedCustomer = null;
-  document.getElementById("login-screen").classList.remove("hidden");
-  document.getElementById("app").classList.add("hidden");
+  const loginEl = document.getElementById("login-screen");
+  const appEl   = document.getElementById("app");
+  loginEl.classList.remove("hidden");
+  loginEl.style.display = "";
+  appEl.classList.add("hidden");
+  appEl.style.display = "none";
 }
 
 // Try auto-login with saved token
@@ -255,8 +265,13 @@ async function tryAutoLogin() {
   try {
     const { user } = await api('/auth/me');
     state.currentUser = user;
-    document.getElementById("login-screen").classList.add("hidden");
-    document.getElementById("app").classList.remove("hidden");
+    const loginEl = document.getElementById("login-screen");
+    const appEl   = document.getElementById("app");
+    loginEl.classList.add("hidden");
+    loginEl.style.display = "none";
+    appEl.classList.remove("hidden");
+    appEl.style.display = "";
+    window.scrollTo(0, 0);
     restoreSidebarState();
     await loadAppData();
     identifySocket();
