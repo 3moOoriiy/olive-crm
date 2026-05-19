@@ -1193,3 +1193,237 @@ hr { border: 0; border-top: 1px solid var(--bz-line-soft); margin: 18px 0; }
 [class*="spin"] {
   filter: drop-shadow(0 0 8px rgba(34,197,94,.4));
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ENTERPRISE-GRADE FINISHING TOUCHES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Smooth global transitions on interactive elements */
+button, a, .card, .stat-card, .badge, input, select, textarea, .qbtn, .tab, .fx-pill {
+  transition: transform .25s cubic-bezier(.2,.9,.2,1),
+              box-shadow .25s cubic-bezier(.2,.9,.2,1),
+              background .2s ease,
+              border-color .2s ease,
+              color .15s ease,
+              opacity .15s ease !important;
+}
+
+/* Stat-card entrance stagger */
+.stats-grid > .stat-card {
+  animation: stat-card-in .5s cubic-bezier(.2,.9,.2,1) both;
+}
+.stats-grid > .stat-card:nth-child(1) { animation-delay: 0ms; }
+.stats-grid > .stat-card:nth-child(2) { animation-delay: 60ms; }
+.stats-grid > .stat-card:nth-child(3) { animation-delay: 120ms; }
+.stats-grid > .stat-card:nth-child(4) { animation-delay: 180ms; }
+.stats-grid > .stat-card:nth-child(5) { animation-delay: 240ms; }
+@keyframes stat-card-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Card lift on hover for non-stat cards */
+.card[onclick], .card.clickable, .qbtn {
+  cursor: pointer;
+}
+.card[onclick]:hover, .card.clickable:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--bz-shadow-md) !important;
+  border-color: rgba(22,163,74,.25) !important;
+}
+
+/* Table row hover refinement */
+table tbody tr {
+  position: relative;
+}
+table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(34,197,94,.06), rgba(34,197,94,.02)) !important;
+}
+table tbody tr td:first-child {
+  position: relative;
+}
+table tbody tr:hover td:first-child::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--bz-leaf), var(--bz-leaf-soft));
+  border-radius: 0 2px 2px 0;
+}
+
+/* Button micro-interaction — press feedback */
+.btn:active, .qbtn:active, .lcv2-submit:active {
+  transform: translateY(0) scale(.98) !important;
+  transition: transform .08s ease !important;
+}
+
+/* Premium loader pattern */
+.loader-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.loader-dots span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--bz-leaf);
+  animation: loader-bounce 1.4s ease-in-out infinite;
+}
+.loader-dots span:nth-child(2) { animation-delay: .15s; }
+.loader-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes loader-bounce {
+  0%, 100% { transform: translateY(0); opacity: .4; }
+  40%      { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Refined skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #eef0f3 25%, #f7f8fa 50%, #eef0f3 75%) !important;
+  background-size: 200% 100% !important;
+}
+
+/* Cards: subtle border accent on hover (without shifting layout) */
+.stat-card, .card {
+  border-color: var(--bz-line) !important;
+  position: relative;
+}
+
+/* Dashboard hero feel — extra margin/breathing */
+.page > .stats-grid {
+  margin-bottom: 28px !important;
+}
+
+/* Section dividers (h2/h3 with subtle accent) */
+.page h2:not(.lbp-headline):not(.lcv2-title),
+.page h3 {
+  position: relative;
+  padding-right: 14px;
+}
+.page h2:not(.lbp-headline):not(.lcv2-title)::before,
+.page h3::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 70%;
+  background: linear-gradient(180deg, var(--bz-leaf), var(--bz-emerald));
+  border-radius: 4px;
+}
+
+/* Modal — refined header */
+.modal-hdr {
+  padding: 18px 24px !important;
+  border-radius: var(--bz-radius-xl) var(--bz-radius-xl) 0 0 !important;
+}
+.modal-hdr h3 {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.2px;
+}
+.modal-hdr h3::before { display: none !important; }
+
+/* Refined focus state — accessibility */
+:focus-visible {
+  outline: 2px solid var(--bz-leaf);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 0 !important;
+}
+
+/* Premium hover for nav pills */
+.fx-pill:hover { transform: translateY(-1px); }
+.fx-pill.active:hover { transform: translateY(0); }
+
+/* Soft success/error toast variants */
+.toast.success {
+  background: linear-gradient(135deg, #f0fdf4, #fff) !important;
+  border: 1px solid #86efac !important;
+  color: #14532d !important;
+}
+.toast.error {
+  background: linear-gradient(135deg, #fef2f2, #fff) !important;
+  border: 1px solid #fca5a5 !important;
+  color: #991b1b !important;
+}
+
+/* Number formatting consistency */
+.stat-value, .stat-number, [class*="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Better empty state with subtle pattern */
+.empty-state {
+  background: radial-gradient(circle at 50% 30%, rgba(34,197,94,.04), transparent 70%);
+  border-radius: var(--bz-radius-xl);
+}
+
+/* Premium scrollbar everywhere */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(11,61,32,.25) transparent;
+}
+
+/* Image preview cards */
+img.preview, .img-preview {
+  border-radius: var(--bz-radius) !important;
+  border: 1px solid var(--bz-line) !important;
+  box-shadow: var(--bz-shadow-xs);
+  transition: transform .2s ease, box-shadow .2s ease !important;
+}
+img.preview:hover, .img-preview:hover {
+  transform: scale(1.02);
+  box-shadow: var(--bz-shadow-md);
+}
+
+/* Refined link button (text-only buttons) */
+.link-btn {
+  color: var(--bz-leaf);
+  font-weight: 700;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all .15s ease;
+}
+.link-btn:hover {
+  background: rgba(34,197,94,.08);
+  color: var(--bz-emerald-deep);
+}
+
+/* Subtle separator above important sections */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bz-line), transparent);
+  margin: 24px 0;
+}
+
+/* Floating action button (if needed in any view) */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bz-emerald), var(--bz-leaf));
+  color: #fff;
+  border: 0;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(11,61,32,.3);
+  z-index: 100;
+  transition: all .25s cubic-bezier(.2,.9,.2,1);
+}
+.fab:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 14px 40px rgba(11,61,32,.4);
+}
+
+/* Body font crispness */
+body { text-rendering: optimizeLegibility; }

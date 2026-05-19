@@ -1152,6 +1152,7 @@ function renderCustomers() {
     </select>` : ""}
     <button class="btn btn-primary" onclick="openAddCustomerModal()">➕ عميل جديد</button>
     <button class="btn btn-accent" onclick="openImportModal()">📥 استيراد من Excel</button>
+    ${can('users:manage') ? `<button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="openRedistributeModal()" title="توزيع العملاء بالتساوي على موظفي الكول سنتر">⚖️ توزيع</button>` : ''}
     ${can('customers:delete_all') ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="deleteAllCustomers()">🗑️ مسح الكل</button>` : ''}
     <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelFile(event)">
   </div>
@@ -2606,6 +2607,40 @@ async function deleteAllCustomers() {
     state.currentPage = 1;
     await loadCustomersPage(1);
   } catch (e) { showToast(e.message, 'error'); }
+}
+
+function openRedistributeModal() {
+  const ccAgents = state.users.filter(u => u.role === 'call_center' && u.is_active !== 0);
+  openModal('⚖️ توزيع العملاء على الكول سنتر', `
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;color:#0c4a6e;margin-bottom:4px">📊 الوضع الحالي</div>
+      <div style="font-size:12px;color:#075985">عدد موظفي الكول سنتر النشطين: <b>${ccAgents.length}</b></div>
+      <div style="font-size:11px;color:#0369a1;margin-top:4px">${ccAgents.map(a => esc(a.name)).join(' • ')}</div>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="redist-only-unassigned">
+        <span>وزّع فقط العملاء غير المخصصين</span>
+      </label>
+      <p style="font-size:11px;color:#64748b;margin-top:4px">لو شيلت العلامة، هيوزّع كل العملاء (المحاولات 1/2/3) بالتساوي</p>
+    </div>
+    <div style="padding:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f">
+      ⚠️ العملاء بحالة "مؤكد" أو "مشحون" مش هيتأثروا.
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    <button class="btn btn-primary" onclick="doRedistribute()">⚖️ ابدأ التوزيع</button>
+  `);
+}
+
+async function doRedistribute() {
+  const onlyUnassigned = document.getElementById('redist-only-unassigned')?.checked;
+  try {
+    const r = await api('/customers/redistribute', { method: 'POST', body: { onlyUnassigned } });
+    closeModal();
+    showToast(`✅ ${r.message}`);
+    await loadCustomersPage(state.currentPage);
+  } catch (e) { alert(e.message); }
 }
 
 function openImportModal() {

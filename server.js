@@ -61,6 +61,28 @@ const inventoryApp = require('./inventory-system/backend/src/app');
 app.use('/inventory', inventoryApp);
 
 // ═══════════════ HELPERS ═══════════════
+// Round-robin pointer for fair distribution among call center users.
+// Persists across requests via the DB so it survives server restarts.
+function pickNextCallCenterAgent() {
+  const db = getDB();
+  // Get active call_center agents ordered by ID
+  const agents = db.all(`SELECT id FROM users WHERE role = 'call_center' AND is_active = 1 ORDER BY id`);
+  if (!agents.length) return null;
+
+  // Find the agent who currently has the FEWEST customers — fair distribution
+  // (Equal-split: ties broken by lowest agent ID so the same agent always
+  //  gets the 'extra' first, but next one balances it.)
+  const counts = db.all(`
+    SELECT u.id, COALESCE(c.cnt, 0) AS cnt
+    FROM users u
+    LEFT JOIN (SELECT assigned_to, COUNT(*) AS cnt FROM customers WHERE assigned_to IS NOT NULL GROUP BY assigned_to) c
+      ON c.assigned_to = u.id
+    WHERE u.role = 'call_center' AND u.is_active = 1
+    ORDER BY cnt ASC, u.id ASC
+  `);
+  return counts[0]?.id || agents[0].id;
+}
+
 function checkAgentOwnership(req, res, customerId) {
   if (['moderator', 'call_center'].includes(req.user.role)) {
     const db = getDB();
@@ -216,10 +238,14 @@ app.post('/api/customers', requireAuth, (req, res) => {
   const existing = db.get('SELECT id, name FROM customers WHERE phone = ?', [normalized]);
   if (existing) return res.status(409).json({ error: 'يوجد عميل بهذا الرقم: ' + existing.name });
 
+  // If no explicit assignee, auto-balance to next least-loaded call center agent
+  const resolvedAssignee = assignedTo
+    || (req.user.role === 'call_center' ? req.user.id : pickNextCallCenterAgent())
+    || req.user.id;
   const result = db.run(`
     INSERT INTO customers (name, phone, phone2, region, source, assigned_to, notes, address, status, last_contact, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'first_attempt', datetime('now'), datetime('now'))
-  `, [name, normalized, normalizePhone(phone2) || '', region || '', source || '', assignedTo || req.user.id, notes || '', address || '']);
+  `, [name, normalized, normalizePhone(phone2) || '', region || '', source || '', resolvedAssignee, notes || '', address || '']);
 
   // Add timeline entry
   db.run(`
@@ -229,6 +255,42 @@ app.post('/api/customers', requireAuth, (req, res) => {
 
   const customer = db.get('SELECT * FROM customers WHERE id = ?', [result.lastInsertRowid]);
   res.status(201).json(customer);
+});
+
+// ═══════════════ REDISTRIBUTE: balance customers across call center agents ═══════════════
+app.post('/api/customers/redistribute', requireAuth, requirePermission('users:manage'), (req, res) => {
+  const db = getDB();
+  const onlyUnassigned = !!req.body.onlyUnassigned;
+  const onlyStatuses = Array.isArray(req.body.statuses) && req.body.statuses.length
+    ? req.body.statuses
+    : ['first_attempt', 'second_attempt', 'third_attempt']; // never reshuffle confirmed/shipped
+
+  const agents = db.all(`SELECT id FROM users WHERE role = 'call_center' AND is_active = 1 ORDER BY id`);
+  if (!agents.length) return res.status(400).json({ error: 'لا يوجد موظفين كول سنتر نشطين' });
+
+  const placeholders = onlyStatuses.map(() => '?').join(',');
+  const whereExtra = onlyUnassigned ? 'AND assigned_to IS NULL' : '';
+  const customers = db.all(
+    `SELECT id FROM customers WHERE status IN (${placeholders}) ${whereExtra} ORDER BY id`,
+    onlyStatuses
+  );
+  if (!customers.length) return res.json({ updated: 0, message: 'مفيش عملاء يحتاجوا توزيع' });
+
+  // Round-robin distribute equally; the 'extra' (odd count) goes to the first agent
+  let updated = 0;
+  customers.forEach((c, i) => {
+    const target = agents[i % agents.length].id;
+    db.run('UPDATE customers SET assigned_to = ? WHERE id = ?', [target, c.id]);
+    updated++;
+  });
+
+  res.json({
+    updated,
+    agentsCount: agents.length,
+    perAgent: Math.floor(customers.length / agents.length),
+    extras: customers.length % agents.length,
+    message: `تم توزيع ${updated} عميل على ${agents.length} موظف كول سنتر`,
+  });
 });
 
 // ═══════════════ DELETE ALL CUSTOMERS ═══════════════
@@ -1374,10 +1436,12 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
         db.run(`UPDATE customers SET region = COALESCE(NULLIF(?, ''), region), address = COALESCE(NULLIF(?, ''), address) WHERE id = ?`, [region, address, customerId]);
       }
     } else {
+      // Auto-assign to next call center agent (round-robin / least-loaded)
+      const assignedTo = pickNextCallCenterAgent();
       const result = db.run(`
-        INSERT INTO customers (name, phone, region, address, source, notes, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'first_attempt', datetime('now'))
-      `, [name, phone, region, address, source, notes]);
+        INSERT INTO customers (name, phone, region, address, source, notes, status, assigned_to, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'first_attempt', ?, datetime('now'))
+      `, [name, phone, region, address, source, notes, assignedTo]);
       customerId = result.lastInsertRowid;
     }
 
@@ -1393,11 +1457,10 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
         total: it.price * it.qty,
       }));
 
-      // Auto-merge: look for an existing website order from this customer in the
-      // last 15 minutes that's still 'جديد' — append items to it instead of
-      // creating a separate order (handles sites that POST each item as its own
-      // request).
-      const MERGE_WINDOW_MIN = 15;
+      // Auto-merge: only within the SAME checkout session (2 minutes).
+      // Orders posted at different times become separate orders (new profile/
+      // order entry) — even from the same phone.
+      const MERGE_WINDOW_MIN = 2;
       const recent = db.get(`
         SELECT * FROM orders
         WHERE customer_id = ?
