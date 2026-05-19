@@ -487,6 +487,9 @@ h2 { font-weight: 800; }
 h3 { font-weight: 700; }
 
 /* ═══════════════ LOGIN SCREEN v2 — World-class ═══════════════ */
+/* Hide login completely when .hidden class is set after login */
+#login-screen.hidden { display: none !important; }
+
 #login-screen {
   min-height: 100vh;
   position: relative;
