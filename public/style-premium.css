@@ -57,6 +57,24 @@ html, body {
   gap: 16px !important;
   flex-wrap: nowrap !important;
 }
+@media (max-width: 768px) {
+  #topbar {
+    flex-wrap: wrap !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    min-height: 52px;
+  }
+  #pill-nav-row {
+    order: 99 !important;
+    flex-basis: 100% !important;
+    margin: 4px -12px 0 !important;
+    padding: 8px 12px !important;
+    border-top: 1px solid var(--bz-line) !important;
+    background: rgba(255,255,255,.6) !important;
+  }
+  .fx-brand { flex: 1; }
+  .fx-pill-logo { display: none !important; }
+}
 
 /* Brand block */
 .fx-brand {
