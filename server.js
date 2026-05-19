@@ -293,6 +293,55 @@ app.post('/api/customers/redistribute', requireAuth, requirePermission('users:ma
   });
 });
 
+// ═══════════════ BULK ACTIONS ═══════════════
+app.post('/api/customers/bulk-status', requireAuth, requirePermission('customers:manage'), (req, res) => {
+  const db = getDB();
+  const { ids, status, assignedTo } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids مطلوبة' });
+  if (!status && !assignedTo) return res.status(400).json({ error: 'حدد حالة أو موظف' });
+  if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'حالة غير صالحة' });
+
+  const placeholders = ids.map(() => '?').join(',');
+  // Ownership: limited roles can only update their own customers
+  let where = `id IN (${placeholders})`;
+  const params = [...ids];
+  if (['moderator', 'call_center'].includes(req.user.role)) {
+    where += ' AND assigned_to = ?';
+    params.push(req.user.id);
+  }
+
+  const updates = [];
+  if (status) updates.push('status = ?');
+  if (assignedTo) updates.push('assigned_to = ?');
+  updates.push("last_contact = datetime('now')");
+  updates.push("updated_at = datetime('now')");
+  updates.push(`updated_by = ${req.user.id}`);
+  updates.push(`updated_by_name = ?`);
+
+  const sqlParams = [];
+  if (status) sqlParams.push(status);
+  if (assignedTo) sqlParams.push(assignedTo);
+  sqlParams.push(req.user.name);
+
+  const sql = `UPDATE customers SET ${updates.join(', ')} WHERE ${where}`;
+  db.run(sql, [...sqlParams, ...params]);
+
+  // Get affected count
+  const affected = db.get(`SELECT COUNT(*) as c FROM customers WHERE ${where}`, params).c;
+
+  // Timeline entries
+  const label = status ? `تغيير الحالة إلى: ${status}` : `تغيير الموظف`;
+  ids.forEach(id => {
+    try {
+      db.run(`INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
+        VALUES (?, 'bulk', ?, '📋', ?, ?, datetime('now'))`,
+        [id, `إجراء جماعي: ${label}`, req.user.name, req.user.id]);
+    } catch(_) {}
+  });
+
+  res.json({ updated: affected, message: `تم تحديث ${affected} عميل` });
+});
+
 // ═══════════════ DELETE ALL CUSTOMERS ═══════════════
 app.delete('/api/customers/all', requireAuth, requirePermission('customers:delete_all'), (req, res) => {
   const db = getDB();

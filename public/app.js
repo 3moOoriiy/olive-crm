@@ -774,6 +774,7 @@ function renderContent() {
   else if (v === "inventory")    { el.innerHTML = renderInventory(); loadInventoryFrame(); }
   else if (v === "shipping")     { el.innerHTML = renderShipping(); loadShippingData(); }
   if (typeof animateCountUps === 'function') animateCountUps();
+  if (typeof refreshBulkBar === 'function') refreshBulkBar();
 }
 
 function renderInventory() {
@@ -1167,21 +1168,31 @@ function renderCustomers() {
       </div>`).join("")}
   </div>
 
-  <div class="flex wrap gap6" style="margin-bottom:10px">
+  <div class="flex wrap gap6" style="margin-bottom:10px;align-items:center;justify-content:space-between">
     <span style="font-size:12px;color:var(--muted)">إجمالي النتائج: <b>${state.totalItems}</b> عميل • صفحة <b>${state.currentPage}</b> من <b>${state.totalPages}</b></span>
+    <div id="bulk-action-bar" style="display:none;align-items:center;gap:8px;padding:8px 14px;background:linear-gradient(135deg,#1e4d0f,#166534);border-radius:999px;color:#fff;font-weight:700;font-size:12px;box-shadow:0 6px 20px rgba(11,61,32,.3)">
+      <span><b id="bulk-count">0</b> محدد</span>
+      <button class="btn btn-sm" style="background:#fff;color:#166534;border:0;font-weight:700" onclick="openBulkActionModal()">⚙️ إجراء جماعي</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:0" onclick="clearBulkSelection()">✕</button>
+    </div>
   </div>
 
   <div class="card"><div class="tbl-wrap">
     <table class="tbl">
       <thead>
-        <tr><th>العميل</th><th>الهاتف</th><th class="mob-hide">العنوان</th><th class="mob-hide">المصدر</th><th>الحالة</th><th class="mob-hide">الموظف</th><th class="mob-hide">آخر تعديل</th><th>آخر تواصل</th><th></th></tr>
+        <tr>
+          <th style="width:36px"><input type="checkbox" id="bulk-select-all" onchange="toggleBulkAll(this.checked)" onclick="event.stopPropagation()" title="اختر الكل"></th>
+          <th>العميل</th><th>الهاتف</th><th class="mob-hide">العنوان</th><th class="mob-hide">المصدر</th><th>الحالة</th><th class="mob-hide">الموظف</th><th class="mob-hide">آخر تعديل</th><th>آخر تواصل</th><th></th>
+        </tr>
       </thead>
       <tbody>
       ${filtered.map(c => {
         const agent = getUser(c.assigned_to);
         const d     = daysDiff(c.last_contact);
         const fullAddr = [c.region, c.address].filter(Boolean).join(' — ');
+        const checked = (state.bulkSelected || new Set()).has(c.id);
         return `<tr style="cursor:pointer" onclick="selectCustomer(${c.id})" onmouseenter="showCustTooltip(event,${c.id})" onmousemove="moveCustTooltip(event)" onmouseleave="hideCustTooltip()">
+          <td onclick="event.stopPropagation()"><input type="checkbox" class="bulk-row" data-id="${c.id}" ${checked ? 'checked' : ''} onchange="toggleBulkRow(${c.id}, this.checked)"></td>
           <td><div class="flex gap6"><div><div style="font-weight:600">${esc(c.name)}</div>${c.notes ? `<div style="font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.notes)}</div>` : ""}</div></div></td>
           <td style="direction:ltr;text-align:right">${formatPhone(c.phone)}</td>
           <td class="mob-hide" style="min-width:200px"><div style="font-size:13px;white-space:normal;word-break:break-word">${esc(fullAddr) || '—'}</div></td>
@@ -1193,7 +1204,7 @@ function renderCustomers() {
           <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();selectCustomer(${c.id})">عرض</button></td>
         </tr>`;
       }).join("")}
-      ${filtered.length === 0 ? `<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">
+      ${filtered.length === 0 ? `<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--muted)">
         <div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">لا توجد نتائج</div></div>
       </td></tr>` : ""}
       </tbody>
@@ -2607,6 +2618,95 @@ async function deleteAllCustomers() {
     state.currentPage = 1;
     await loadCustomersPage(1);
   } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ═══════════════ BULK SELECT / BULK ACTIONS ═══════════════
+function getBulkSet() {
+  if (!state.bulkSelected) state.bulkSelected = new Set();
+  return state.bulkSelected;
+}
+function refreshBulkBar() {
+  const bar = document.getElementById('bulk-action-bar');
+  const count = document.getElementById('bulk-count');
+  const set = getBulkSet();
+  if (!bar) return;
+  if (set.size > 0) {
+    bar.style.display = 'inline-flex';
+    if (count) count.textContent = set.size;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+function toggleBulkRow(id, checked) {
+  const set = getBulkSet();
+  if (checked) set.add(id); else set.delete(id);
+  refreshBulkBar();
+}
+function toggleBulkAll(checked) {
+  const set = getBulkSet();
+  set.clear();
+  if (checked) {
+    (state.customers || []).forEach(c => set.add(c.id));
+    document.querySelectorAll('.bulk-row').forEach(cb => cb.checked = true);
+  } else {
+    document.querySelectorAll('.bulk-row').forEach(cb => cb.checked = false);
+  }
+  refreshBulkBar();
+}
+function clearBulkSelection() {
+  state.bulkSelected = new Set();
+  document.querySelectorAll('.bulk-row').forEach(cb => cb.checked = false);
+  const all = document.getElementById('bulk-select-all');
+  if (all) all.checked = false;
+  refreshBulkBar();
+}
+
+function openBulkActionModal() {
+  const set = getBulkSet();
+  if (!set.size) { alert('اختار عملاء الأول'); return; }
+  const agentOpts = state.users
+    .filter(u => ['call_center','complaints','moderator','supervisor'].includes(u.role) && u.is_active !== 0)
+    .map(u => `<option value="${u.id}">${esc(u.name)} (${ROLE_LABELS[u.role] || u.role})</option>`).join('');
+  openModal(`⚙️ إجراء جماعي على ${set.size} عميل`, `
+    <div class="form-group">
+      <label>تغيير الحالة (اختياري)</label>
+      <select id="bulk-status">
+        <option value="">— لا تغيير —</option>
+        ${STATUSES.map(s => `<option value="${s.key}">${s.icon} ${s.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>تغيير الموظف المسؤول (اختياري)</label>
+      <select id="bulk-assignee">
+        <option value="">— لا تغيير —</option>
+        ${agentOpts}
+      </select>
+    </div>
+    <div style="padding:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f">
+      ⚠️ هتأثر على <b>${set.size}</b> عميل دفعة واحدة. مفيش رجوع.
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    <button class="btn btn-primary" onclick="doBulkAction()">✅ نفّذ</button>
+  `);
+}
+
+async function doBulkAction() {
+  const set = getBulkSet();
+  const status = document.getElementById('bulk-status')?.value || null;
+  const assignedTo = parseInt(document.getElementById('bulk-assignee')?.value) || null;
+  if (!status && !assignedTo) { alert('اختار حالة أو موظف الأول'); return; }
+  try {
+    const r = await api('/customers/bulk-status', { method: 'POST', body: {
+      ids: [...set],
+      status,
+      assignedTo,
+    }});
+    closeModal();
+    clearBulkSelection();
+    showToast(`✅ ${r.message}`);
+    await loadCustomersPage(state.currentPage);
+  } catch (e) { alert(e.message); }
 }
 
 function openRedistributeModal() {
