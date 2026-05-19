@@ -1342,11 +1342,27 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
     const source   = (b.source || 'موقع خارجي').trim();
     const notes    = (b.notes || '').trim();
 
-    // ─── Order fields (optional) ───
-    const productName = (b.productName || b.product_name || b.product || '').trim();
-    const qty   = parseInt(b.qty || b.quantity || 1, 10) || 1;
-    const price = parseFloat(b.price || 0) || 0;
-    const total = parseFloat(b.total || (price * qty)) || 0;
+    // ─── Order fields ───
+    // Accept either:
+    //   items: [{productName, qty, price}, ...]  (multi-product)
+    //   OR legacy single: productName, qty, price
+    let items = [];
+    if (Array.isArray(b.items) && b.items.length) {
+      items = b.items.map(it => ({
+        productName: (it.productName || it.product_name || it.product || '').trim(),
+        qty: parseInt(it.qty || it.quantity || 1, 10) || 1,
+        price: parseFloat(it.price || 0) || 0,
+      })).filter(it => it.productName);
+    } else {
+      const singleName = (b.productName || b.product_name || b.product || '').trim();
+      if (singleName) {
+        items = [{
+          productName: singleName,
+          qty: parseInt(b.qty || b.quantity || 1, 10) || 1,
+          price: parseFloat(b.price || 0) || 0,
+        }];
+      }
+    }
 
     // ─── Find or create customer ───
     let customer = db.get('SELECT id FROM customers WHERE phone = ?', [phone]);
@@ -1365,19 +1381,35 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
       customerId = result.lastInsertRowid;
     }
 
-    // ─── Create order if product info provided ───
+    // ─── Create one order row (groups all items) ───
     let orderId = null;
-    if (productName) {
+    if (items.length) {
+      const resolved = items.map(it => ({
+        productId: 0,
+        productName: it.productName,
+        qty: it.qty,
+        price: it.price,
+        total: it.price * it.qty,
+      }));
+      const grand = resolved.reduce((s, it) => s + it.total, 0);
+      const totalQty = resolved.reduce((s, it) => s + it.qty, 0);
+      const first = resolved[0];
+      const productNameSummary = resolved.length === 1
+        ? first.productName
+        : `${first.productName} +${resolved.length - 1} منتجات`;
+      const itemsJson = resolved.length > 1 ? JSON.stringify(resolved) : '';
+
       const orderResult = db.run(`
-        INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, created_at)
-        VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, 'website', datetime('now'))
-      `, [customerId, productName, qty, price, total, address]);
+        INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, items_json, created_at)
+        VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, 'website', ?, datetime('now'))
+      `, [customerId, productNameSummary, totalQty, first.price, grand, address, itemsJson]);
       orderId = orderResult.lastInsertRowid;
 
+      const tlLabels = resolved.map(it => `${it.productName} × ${it.qty}`).join(' • ');
       db.run(`
         INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
         VALUES (?, 'order', ?, '🌐', 'الموقع الإلكتروني', datetime('now'))
-      `, [customerId, `طلب جديد من الموقع: ${productName} × ${qty} — ${total} جنيه`]);
+      `, [customerId, `طلب جديد من الموقع: ${tlLabels} — إجمالي ${grand} جنيه`]);
     }
 
     // ─── Notify connected CRM users via socket ───

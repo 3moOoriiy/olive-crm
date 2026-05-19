@@ -3219,6 +3219,20 @@ async function doPrintInvoice(orderId, size) {
     const tableFont = isThermal ? '10px' : (isA5 ? '12px' : '13px');
     const cellPad = isThermal ? '4px 4px' : (isA5 ? '6px 8px' : '10px 14px');
 
+    // Parse line items — fall back to single item from columns
+    let lineItems = null;
+    if (order.items_json) {
+      try { lineItems = JSON.parse(order.items_json); } catch(_) {}
+    }
+    if (!lineItems || !lineItems.length) {
+      lineItems = [{
+        productName: order.product_name,
+        qty: order.qty,
+        price: order.price,
+        total: order.total,
+      }];
+    }
+
     let invoiceHtml;
 
     if (isThermal) {
@@ -3235,8 +3249,10 @@ async function doPrintInvoice(orderId, size) {
         ${fullAddr ? `<div class="r-row"><b>العنوان:</b> ${esc(fullAddr)}</div>` : ''}
         ${order.address ? `<div class="r-row"><b>التوصيل:</b> ${esc(order.address)}</div>` : ''}
         <div class="r-divider"></div>
-        <div class="r-row" style="font-weight:700">${esc(order.product_name)}</div>
-        <div class="r-row r-flex"><span>الكمية × السعر</span><span>${order.qty} × ${order.price}</span></div>
+        ${lineItems.map(it => `
+          <div class="r-row" style="font-weight:700">${esc(it.productName)}</div>
+          <div class="r-row r-flex"><span>${it.qty} × ${it.price} ج</span><span>${it.total} ج</span></div>
+        `).join('<div class="r-divider" style="border-top:1px dashed #999;margin:4px 0"></div>')}
         <div class="r-divider"></div>
         <div class="r-row r-flex" style="font-size:13px;font-weight:800"><span>الإجمالي</span><span>${order.total} جنيه</span></div>
         <div class="r-divider"></div>
@@ -3258,19 +3274,22 @@ async function doPrintInvoice(orderId, size) {
           </div>
         </div>
         <div class="invoice-section">
-          <h3>📦 تفاصيل الطلب</h3>
+          <h3>📦 تفاصيل الطلب (${lineItems.length} ${lineItems.length === 1 ? 'منتج' : 'منتجات'})</h3>
           <table>
-            <thead><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+            <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
             <tbody>
-              <tr>
-                <td>${esc(order.product_name)}</td>
-                <td>${order.qty}</td>
-                <td>${order.price} جنيه</td>
-                <td style="font-weight:700">${order.total} جنيه</td>
-              </tr>
+              ${lineItems.map((it, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${esc(it.productName)}</td>
+                  <td>${it.qty}</td>
+                  <td>${it.price} جنيه</td>
+                  <td style="font-weight:700">${it.total} جنيه</td>
+                </tr>
+              `).join('')}
             </tbody>
             <tfoot>
-              <tr class="total-row"><td colspan="3">الإجمالي الكلي</td><td>${order.total} جنيه</td></tr>
+              <tr class="total-row"><td colspan="4">الإجمالي الكلي</td><td>${order.total} جنيه</td></tr>
             </tfoot>
           </table>
         </div>
