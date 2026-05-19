@@ -1202,13 +1202,32 @@ function renderCustomerDetail() {
       <button class="btn btn-primary" style="margin-bottom:14px" onclick="openAddOrderModal()">➕ طلب جديد</button>
       ${orders.length === 0
         ? `<div class="card" style="padding:30px;text-align:center;color:var(--muted)">لا توجد طلبات</div>`
-        : orders.map(o => `
+        : orders.map(o => {
+          let items = null;
+          if (o.items_json) {
+            try { items = JSON.parse(o.items_json); } catch(_) {}
+          }
+          const isMulti = items && items.length > 1;
+          return `
           <div class="card" style="padding:16px;margin-bottom:10px">
             <div class="flex jcsb">
               <div style="flex:1">
-                <div style="font-weight:700;font-size:14px">${esc(o.product_name)}</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:4px">الكمية: ${o.qty} • السعر: ${o.price} جنيه • الإجمالي: <b>${o.total} جنيه</b></div>
-                <div style="font-size:12px;color:var(--muted)">${fmtDate(o.created_at)}${o.address ? " • " + esc(o.address) : ""}</div>
+                <div style="font-weight:700;font-size:14px">
+                  ${isMulti ? `🛒 طلب فيه ${items.length} منتجات` : esc(o.product_name)}
+                </div>
+                ${isMulti ? `
+                  <div style="margin-top:8px;background:#f9fbf7;border-radius:8px;padding:8px">
+                    ${items.map((it, idx) => `
+                      <div style="display:flex;justify-content:space-between;padding:4px 0;${idx < items.length - 1 ? 'border-bottom:1px dashed var(--border)' : ''}">
+                        <span style="font-size:12px;font-weight:600">${esc(it.productName)}</span>
+                        <span style="font-size:12px;color:var(--muted)">×${it.qty} • ${it.total} ج</span>
+                      </div>`).join('')}
+                  </div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:6px">إجمالي الطلب: <b style="color:#166534;font-size:13px">${o.total} جنيه</b></div>
+                ` : `
+                  <div style="font-size:12px;color:var(--muted);margin-top:4px">الكمية: ${o.qty} • السعر: ${o.price} جنيه • الإجمالي: <b>${o.total} جنيه</b></div>
+                `}
+                <div style="font-size:12px;color:var(--muted);margin-top:4px">${fmtDate(o.created_at)}${o.address ? " • " + esc(o.address) : ""}</div>
                 ${o.source === 'website' ? `<div style="margin-top:6px"><span class="badge" style="background:#dbeafe;color:#1d4ed8">🌐 جي من الموقع</span></div>` : ''}
                 ${o.moderator_name ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 مودوريتور: ${esc(o.moderator_name)}${o.moderator_code ? ' • كود: ' + esc(o.moderator_code) : ''}</div>` : ''}
                 ${o.instapay_image ? `
@@ -1227,7 +1246,8 @@ function renderCustomerDetail() {
                 <button class="btn btn-ghost btn-sm" onclick="printInvoice(${o.id})" title="طباعة فاتورة">🖨️</button>
               </div>
             </div>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
     </div>`;
   } else if (t === "whatsapp") {
     const messages = c.messages || [];
