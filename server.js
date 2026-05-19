@@ -496,34 +496,44 @@ app.get('/api/orders', requireAuth, (req, res) => {
 
 app.post('/api/customers/:id/orders', requireAuth, (req, res) => {
   const db = getDB();
-  const { productId, qty, address } = req.body;
   const customerId = req.params.id;
-
   const ownerCheck = checkAgentOwnership(req, res, customerId);
   if (ownerCheck.error) return res.status(ownerCheck.status).json({ error: ownerCheck.msg });
 
-  const product = db.get('SELECT * FROM products WHERE id = ?', [productId]);
-  if (!product) return res.status(400).json({ error: 'المنتج غير موجود' });
-
-  const total = product.price * (qty || 1);
   const customer = db.get('SELECT * FROM customers WHERE id = ?', [customerId]);
   if (!customer) return res.status(404).json({ error: 'العميل غير موجود' });
 
-  const result = db.run(`
-    INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'جديد', ?, datetime('now'))
-  `, [customerId, productId, product.name, qty || 1, product.price, total, address || customer.region]);
+  // Accept either { items: [{productId, qty}, ...] } or legacy { productId, qty }
+  const items = Array.isArray(req.body.items) && req.body.items.length
+    ? req.body.items
+    : [{ productId: req.body.productId, qty: req.body.qty }];
+  const address = req.body.address || customer.region;
+
+  const created = [];
+  let grandTotal = 0;
+  const labels = [];
+  for (const it of items) {
+    const product = db.get('SELECT * FROM products WHERE id = ?', [it.productId]);
+    if (!product) return res.status(400).json({ error: `المنتج ID ${it.productId} غير موجود` });
+    const q = parseInt(it.qty) || 1;
+    const total = product.price * q;
+    grandTotal += total;
+    const result = db.run(`
+      INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'جديد', ?, 'manual', datetime('now'))
+    `, [customerId, it.productId, product.name, q, product.price, total, address]);
+    created.push(db.get('SELECT * FROM orders WHERE id = ?', [result.lastInsertRowid]));
+    labels.push(`${product.name} × ${q}`);
+  }
 
   db.run('UPDATE customers SET status = ?, last_contact = datetime("now") WHERE id = ?', ['ordered', customerId]);
-
   db.run(`
     INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
     VALUES (?, 'order', ?, '🛍️', ?, ?, datetime('now'))
-  `, [customerId, `طلب جديد: ${product.name} × ${qty || 1} — ${total} جنيه`, req.user.name, req.user.id]);
+  `, [customerId, `طلب جديد: ${labels.join(' • ')} — إجمالي ${grandTotal} جنيه`, req.user.name, req.user.id]);
 
-  const order = db.get('SELECT * FROM orders WHERE id = ?', [result.lastInsertRowid]);
   io.emit('customer:updated', { customer: db.get('SELECT * FROM customers WHERE id = ?', [customerId]) });
-  res.status(201).json(order);
+  res.status(201).json(created.length === 1 ? created[0] : { orders: created, total: grandTotal });
 });
 
 app.patch('/api/orders/:id/status', requireAuth, (req, res) => {
@@ -995,21 +1005,27 @@ app.delete('/api/complaints/:id', requireAuth, requirePermission('complaints:man
 app.post('/api/moderator-orders', requireAuth, requirePermission('orders:create'), (req, res) => {
   const db = getDB();
   const b = req.body || {};
-  // Accept both camelCase and snake_case keys from frontend
   const customerName = b.customerName || b.customer_name || b.name;
   const phone = b.phone || b.customer_phone;
   const phone2 = b.phone2 || b.customer_phone2;
   const address = b.address || b.customer_address;
-  const productName = b.productName || b.product_name;
-  const productId = b.productId || b.product_id || 0;
-  const price = b.price;
-  const qty = b.qty;
   const moderatorCode = b.moderatorCode || b.moderator_code;
   const moderatorName = b.moderatorName || b.moderator_name;
   const instapayImage = b.instapayImage || b.instapay_image;
 
-  if (!customerName || !phone || !productName || !price) {
-    return res.status(400).json({ error: 'الاسم والهاتف والمنتج والسعر مطلوبين' });
+  // Accept either { items: [{product_id, product_name, qty, price}, ...] } or legacy single
+  const items = Array.isArray(b.items) && b.items.length ? b.items : [{
+    product_id: b.productId || b.product_id || 0,
+    product_name: b.productName || b.product_name,
+    qty: b.qty,
+    price: b.price,
+  }];
+
+  if (!customerName || !phone) {
+    return res.status(400).json({ error: 'اسم العميل والهاتف مطلوبين' });
+  }
+  if (!items[0].product_name || !items[0].price) {
+    return res.status(400).json({ error: 'منتج واحد على الأقل بسعر مطلوب' });
   }
 
   const normalized = normalizePhone(phone);
@@ -1022,25 +1038,33 @@ app.post('/api/moderator-orders', requireAuth, requirePermission('orders:create'
       VALUES (?, ?, ?, ?, 'مودوريتور', 'confirmed', ?, datetime('now'), datetime('now'))
     `, [customerName, normalized, normalizePhone(phone2) || '', address || '', req.user.id]);
     customer = db.get('SELECT * FROM customers WHERE id = ?', [custResult.lastInsertRowid]);
-
     db.run(`INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
       VALUES (?, 'created', 'تم إضافة العميل من فورم المودوريتور', '📋', ?, ?, datetime('now'))`,
       [customer.id, req.user.name, req.user.id]);
   }
 
-  // Create order
-  const total = (parseFloat(price) || 0) * (parseInt(qty) || 1);
-  const orderResult = db.run(`
-    INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, moderator_code, moderator_name, instapay_image, created_by, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'جديد', ?, ?, ?, ?, ?, datetime('now'))
-  `, [customer.id, parseInt(productId) || 0, productName, parseInt(qty) || 1, parseFloat(price), total, address || '', moderatorCode || '', moderatorName || req.user.name, instapayImage || '', req.user.id]);
+  // Create one order row per item
+  const created = [];
+  const labels = [];
+  let grand = 0;
+  for (const it of items) {
+    const q = parseInt(it.qty) || 1;
+    const p = parseFloat(it.price) || 0;
+    const total = p * q;
+    grand += total;
+    const r = db.run(`
+      INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, moderator_code, moderator_name, instapay_image, created_by, source, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'جديد', ?, ?, ?, ?, ?, 'moderator', datetime('now'))
+    `, [customer.id, parseInt(it.product_id) || 0, it.product_name, q, p, total, address || '', moderatorCode || '', moderatorName || req.user.name, instapayImage || '', req.user.id]);
+    created.push(db.get('SELECT * FROM orders WHERE id = ?', [r.lastInsertRowid]));
+    labels.push(`${it.product_name} × ${q}`);
+  }
 
   db.run(`INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
     VALUES (?, 'order', ?, '🛍️', ?, ?, datetime('now'))`,
-    [customer.id, `طلب مودوريتور: ${productName} × ${qty || 1} — ${total} جنيه`, req.user.name, req.user.id]);
+    [customer.id, `طلب مودوريتور: ${labels.join(' • ')} — إجمالي ${grand} جنيه`, req.user.name, req.user.id]);
 
-  const order = db.get('SELECT * FROM orders WHERE id = ?', [orderResult.lastInsertRowid]);
-  res.status(201).json({ order, customer });
+  res.status(201).json({ orders: created, customer, total: grand });
 });
 
 // ═══════════════ ONLINE USERS TRACKING ═══════════════
@@ -1317,10 +1341,15 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
     let orderId = null;
     if (productName) {
       const orderResult = db.run(`
-        INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, created_at)
-        VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, datetime('now'))
+        INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, created_at)
+        VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, 'website', datetime('now'))
       `, [customerId, productName, qty, price, total, address]);
       orderId = orderResult.lastInsertRowid;
+
+      db.run(`
+        INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
+        VALUES (?, 'order', ?, '🌐', 'الموقع الإلكتروني', datetime('now'))
+      `, [customerId, `طلب جديد من الموقع: ${productName} × ${qty} — ${total} جنيه`]);
     }
 
     // ─── Notify connected CRM users via socket ───

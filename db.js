@@ -120,6 +120,8 @@ async function initDB() {
   try { db.run(`ALTER TABLE orders ADD COLUMN jt_status TEXT DEFAULT ''`); } catch(e) {}
   try { db.run(`ALTER TABLE orders ADD COLUMN jt_last_sync TEXT DEFAULT ''`); } catch(e) {}
   try { db.run(`ALTER TABLE orders ADD COLUMN jt_tracking_json TEXT DEFAULT ''`); } catch(e) {}
+  // Source channel — manual / website / moderator / call_center
+  try { db.run(`ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'manual'`); } catch(e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (

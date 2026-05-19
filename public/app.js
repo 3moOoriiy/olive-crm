@@ -1205,12 +1205,20 @@ function renderCustomerDetail() {
         : orders.map(o => `
           <div class="card" style="padding:16px;margin-bottom:10px">
             <div class="flex jcsb">
-              <div>
+              <div style="flex:1">
                 <div style="font-weight:700;font-size:14px">${esc(o.product_name)}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">الكمية: ${o.qty} • السعر: ${o.price} جنيه • الإجمالي: <b>${o.total} جنيه</b></div>
                 <div style="font-size:12px;color:var(--muted)">${fmtDate(o.created_at)}${o.address ? " • " + esc(o.address) : ""}</div>
+                ${o.source === 'website' ? `<div style="margin-top:6px"><span class="badge" style="background:#dbeafe;color:#1d4ed8">🌐 جي من الموقع</span></div>` : ''}
+                ${o.moderator_name ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 مودوريتور: ${esc(o.moderator_name)}${o.moderator_code ? ' • كود: ' + esc(o.moderator_code) : ''}</div>` : ''}
+                ${o.instapay_image ? `
+                  <div style="margin-top:8px">
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px">💳 إيصال انستاباي:</div>
+                    <img src="${esc(o.instapay_image)}" style="max-width:200px;max-height:200px;border-radius:8px;border:1px solid var(--border);cursor:zoom-in" onclick="openImageZoom('${esc(o.instapay_image)}')">
+                  </div>
+                ` : ''}
               </div>
-              <div class="flex gap6" style="align-items:center">
+              <div class="flex gap6" style="align-items:center;flex-direction:column">
                 <span class="badge" style="background:${o.status === 'تم التسليم' ? '#dcfce7' : o.status === 'مرتجع' ? '#fee2e2' : '#dbeafe'};color:${o.status === 'تم التسليم' ? '#166534' : o.status === 'مرتجع' ? '#dc2626' : '#1e40af'}">${esc(o.status)}</span>
                 ${o.jt_waybill_no
                   ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="رقم الشحنة: ${esc(o.jt_waybill_no)}">🚚 ${esc(JT_STATUS_LABELS[o.jt_status] || o.jt_status || 'مشحون')}</span>`
@@ -1246,6 +1254,12 @@ function renderCustomerDetail() {
     </div>`;
   }
 
+  const totalOrders = (c.orders || []).length;
+  const lastOrderDate = totalOrders ? (c.orders || []).reduce((latest, o) => {
+    return (!latest || o.created_at > latest) ? o.created_at : latest;
+  }, null) : null;
+  const isReturning = totalOrders >= 2;
+
   return `<div class="page">
   <div class="flex gap12 wrap" style="margin-bottom:18px">
     <button class="btn btn-ghost btn-sm" onclick="goBack()">← رجوع</button>
@@ -1254,8 +1268,10 @@ function renderCustomerDetail() {
         <h2 style="font-size:17px;font-weight:800">${esc(c.name)}</h2>
         ${isHot ? `<span style="font-size:18px">🔥</span>` : ""}
         ${stBadge(c.status)}
+        ${isReturning ? `<span class="badge" style="background:#fef3c7;color:#92400e;font-weight:700" title="عميل متكرر">⭐ عميل متكرر • ${totalOrders} طلبات</span>` : ''}
+        ${totalOrders === 1 ? `<span class="badge" style="background:#dbeafe;color:#1e40af" title="أول طلب">🆕 أول طلب</span>` : ''}
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:2px">${[c.region, c.address].filter(Boolean).map(esc).join(' — ')} • ${esc(c.source)} • ${fmtDate(c.created_at)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${[c.region, c.address].filter(Boolean).map(esc).join(' — ')} • ${esc(c.source)} • ${fmtDate(c.created_at)}${lastOrderDate ? ` • آخر طلب: <b style="color:${isReturning ? '#92400e' : 'var(--text)'}">${fmtDate(lastOrderDate)}</b>` : ''}</div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="openEditCustomerModal()">✏️ تعديل</button>
   </div>
@@ -2199,6 +2215,14 @@ function updateCustomerNotes(id, notes) {
 }
 
 // ═══════════════ MODAL SYSTEM ═══════════════
+function openImageZoom(src) {
+  openModal('🖼️ معاينة الصورة',
+    `<div style="text-align:center"><img src="${src}" style="max-width:100%;max-height:70vh;border-radius:8px"></div>`,
+    `<a href="${src}" download="instapay.png" class="btn btn-ghost btn-sm">⬇️ تحميل</a>
+     <button class="btn btn-primary" onclick="closeModal()">إغلاق</button>`,
+    true);
+}
+
 function openModal(title, bodyHtml, footerHtml, wide = false) {
   document.getElementById("modal-title").textContent = title;
   document.getElementById("modal-body").innerHTML    = bodyHtml;
@@ -2316,32 +2340,74 @@ async function saveLogCall() {
 // ═══════════════ ADD ORDER MODAL ═══════════════
 function openAddOrderModal() {
   const c = state.selectedCustomer; if (!c) return;
+  state._orderItems = [{ productId: state.products[0]?.id, qty: 1 }];
   openModal("🛍️ طلب جديد", `
-    <div class="form-group"><label>المنتج</label><select id="ord-prod" onchange="updateOrderTotal()">${state.products.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} — ${p.price} جنيه</option>`).join("")}</select></div>
-    <div class="form-group"><label>الكمية</label><input id="ord-qty" type="number" min="1" max="100" value="1" oninput="updateOrderTotal()"></div>
+    <div id="ord-items"></div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addOrderItem()" style="margin-bottom:12px;border:1px dashed var(--border);width:100%;padding:10px">➕ إضافة منتج آخر</button>
     <div class="form-group"><label>عنوان التسليم</label><input id="ord-addr" type="text" value="${esc(c.region)}${c.address ? ' - ' + esc(c.address) : ''}"></div>
-    <div id="ord-total" style="padding:12px 14px;background:#f0fdf4;border-radius:8px;display:flex;justify-content:space-between;font-size:14px"><span>الإجمالي:</span><span style="font-weight:800;color:#166534">${state.products[0]?.price || 0} جنيه</span></div>`,
+    <div id="ord-total" style="padding:12px 14px;background:#f0fdf4;border-radius:8px;display:flex;justify-content:space-between;font-size:14px"><span>الإجمالي:</span><span style="font-weight:800;color:#166534">0 جنيه</span></div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveOrder()">إنشاء الطلب</button>`);
+  renderOrderItems();
+}
+
+function renderOrderItems() {
+  const wrap = document.getElementById('ord-items');
+  if (!wrap) return;
+  const items = state._orderItems || [];
+  wrap.innerHTML = items.map((it, i) => `
+    <div class="card" style="padding:10px;margin-bottom:8px;display:grid;grid-template-columns:1fr 80px 32px;gap:8px;align-items:end">
+      <div><label style="font-size:11px;color:var(--muted);font-weight:600">المنتج ${i + 1}</label>
+        <select onchange="updateOrderItem(${i},'productId',this.value);updateOrderTotal()">
+          ${state.products.map(p => `<option value="${p.id}" data-price="${p.price}" ${String(it.productId) === String(p.id) ? 'selected' : ''}>${esc(p.name)} — ${p.price} جنيه</option>`).join('')}
+        </select>
+      </div>
+      <div><label style="font-size:11px;color:var(--muted);font-weight:600">الكمية</label>
+        <input type="number" min="1" value="${it.qty || 1}" oninput="updateOrderItem(${i},'qty',this.value);updateOrderTotal()">
+      </div>
+      <button type="button" onclick="removeOrderItem(${i})" title="حذف" style="background:#fee2e2;color:#dc2626;border:0;border-radius:8px;height:38px;cursor:pointer;font-size:14px" ${items.length === 1 ? 'disabled style="opacity:.3"' : ''}>🗑️</button>
+    </div>`).join('');
+  updateOrderTotal();
+}
+
+function addOrderItem() {
+  state._orderItems = state._orderItems || [];
+  state._orderItems.push({ productId: state.products[0]?.id, qty: 1 });
+  renderOrderItems();
+}
+
+function removeOrderItem(idx) {
+  if (state._orderItems.length <= 1) return;
+  state._orderItems.splice(idx, 1);
+  renderOrderItems();
+}
+
+function updateOrderItem(idx, key, val) {
+  if (!state._orderItems[idx]) return;
+  state._orderItems[idx][key] = key === 'qty' ? (parseInt(val) || 1) : val;
 }
 
 function updateOrderTotal() {
-  const sel   = document.getElementById("ord-prod");
-  const price = parseInt(sel?.options[sel?.selectedIndex]?.dataset.price || 0);
-  const qty   = parseInt(document.getElementById("ord-qty")?.value || 1);
-  const el    = document.getElementById("ord-total");
-  if (el) el.innerHTML = `<span>الإجمالي:</span><span style="font-weight:800;color:#166534">${price * qty} جنيه</span>`;
+  const items = state._orderItems || [];
+  let total = 0;
+  items.forEach(it => {
+    const p = state.products.find(p => String(p.id) === String(it.productId));
+    if (p) total += p.price * (parseInt(it.qty) || 1);
+  });
+  const el = document.getElementById("ord-total");
+  if (el) el.innerHTML = `<span>الإجمالي:</span><span style="font-weight:800;color:#166534">${total} جنيه</span>`;
 }
 
 async function saveOrder() {
   const c = state.selectedCustomer; if (!c) return;
+  const items = (state._orderItems || []).filter(it => it.productId && it.qty > 0);
+  if (!items.length) { alert('ضيف منتج واحد على الأقل'); return; }
   try {
     await api('/customers/' + c.id + '/orders', { method: 'POST', body: {
-      productId: parseInt(document.getElementById("ord-prod")?.value),
-      qty:       parseInt(document.getElementById("ord-qty")?.value  || 1),
-      address:   document.getElementById("ord-addr")?.value || c.region
+      items: items.map(it => ({ productId: parseInt(it.productId), qty: parseInt(it.qty) || 1 })),
+      address: document.getElementById("ord-addr")?.value || c.region
     }});
     closeModal();
-    showToast('تم إنشاء الطلب بنجاح');
+    showToast(`تم إنشاء ${items.length} طلب بنجاح`);
     state._orders = null;
     await selectCustomer(c.id);
   } catch (e) { alert(e.message); }
@@ -2913,48 +2979,87 @@ async function deleteProduct(id) {
 
 // ═══════════════ MODERATOR ORDER FORM ═══════════════
 function openModeratorOrderModal() {
-  const productOpts = state.products.filter(p => p.is_active).map(p => `<option value="${p.id}" data-price="${p.price}">${esc(p.name)} — ${p.price} جنيه</option>`).join('');
+  const firstProduct = state.products.filter(p => p.is_active)[0];
+  state._modItems = [{ productId: firstProduct?.id, qty: 1, price: firstProduct?.price || 0 }];
   openModal("📝 طلب جديد — مودوريتور", `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group" style="grid-column:1/-1"><label>اسم العميل *</label><input id="mo-name" type="text" placeholder="الاسم الكامل"></div>
       <div class="form-group"><label>رقم الهاتف *</label><input id="mo-phone" type="tel" placeholder="01xxxxxxxxx"></div>
       <div class="form-group"><label>رقم بديل</label><input id="mo-phone2" type="tel" placeholder="01xxxxxxxxx"></div>
       <div class="form-group" style="grid-column:1/-1"><label>العنوان *</label><input id="mo-address" type="text" placeholder="المحافظة — المنطقة — الشارع..."></div>
-      <div class="form-group"><label>المنتج *</label><select id="mo-product" onchange="updateModeratorPrice()">${productOpts}</select></div>
-      <div class="form-group"><label>الكمية</label><input id="mo-qty" type="number" min="1" value="1" onchange="updateModeratorPrice()"></div>
-      <div class="form-group"><label>السعر (جنيه)</label><input id="mo-price" type="number" min="0"></div>
-      <div class="form-group"><label>الإجمالي</label><input id="mo-total" type="number" min="0" readonly style="background:#f3f4f6;font-weight:700"></div>
+    </div>
+    <div style="margin-top:12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">🛒 المنتجات</div>
+      <div id="mo-items"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addModItem()" style="border:1px dashed var(--border);width:100%;padding:10px">➕ إضافة منتج آخر</button>
+      <div id="mo-grandtotal" style="padding:12px 14px;background:#f0fdf4;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;margin-top:10px"><span>الإجمالي الكلي:</span><span style="font-weight:800;color:#166534">0 جنيه</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
       <div class="form-group"><label>كود المودوريتور</label><input id="mo-code" type="text" placeholder="كود المودوريتور"></div>
       <div class="form-group"><label>اسم المودوريتور</label><input id="mo-modname" type="text" placeholder="اسم المودوريتور" value="${esc(state.currentUser?.name || '')}"></div>
       <div class="form-group" style="grid-column:1/-1"><label>صورة انستاباي (اختياري)</label><input id="mo-instapay" type="file" accept="image/*" onchange="previewInstapay(event)"></div>
       <div id="mo-instapay-preview" style="grid-column:1/-1"></div>
     </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveModeratorOrder()">📦 حفظ الطلب</button>`, true);
-
-  // Set initial price from first product
-  setTimeout(() => updateModeratorPrice(), 50);
+  renderModItems();
 }
 
-function updateModeratorPrice() {
-  const sel = document.getElementById('mo-product');
-  const qtyEl = document.getElementById('mo-qty');
-  const priceEl = document.getElementById('mo-price');
-  const totalEl = document.getElementById('mo-total');
-  if (!sel || !qtyEl || !priceEl || !totalEl) return;
+function renderModItems() {
+  const wrap = document.getElementById('mo-items');
+  if (!wrap) return;
+  const items = state._modItems || [];
+  wrap.innerHTML = items.map((it, i) => `
+    <div class="card" style="padding:10px;margin-bottom:8px;display:grid;grid-template-columns:1fr 70px 90px 32px;gap:6px;align-items:end">
+      <div><label style="font-size:11px;color:var(--muted);font-weight:600">المنتج ${i + 1}</label>
+        <select onchange="updateModItem(${i},'productId',this.value);recalcModItem(${i});updateModGrandTotal()">
+          ${state.products.filter(p => p.is_active).map(p => `<option value="${p.id}" data-price="${p.price}" ${String(it.productId) === String(p.id) ? 'selected' : ''}>${esc(p.name)} — ${p.price} ج</option>`).join('')}
+        </select>
+      </div>
+      <div><label style="font-size:11px;color:var(--muted);font-weight:600">الكمية</label>
+        <input type="number" min="1" value="${it.qty || 1}" oninput="updateModItem(${i},'qty',this.value);updateModGrandTotal()">
+      </div>
+      <div><label style="font-size:11px;color:var(--muted);font-weight:600">السعر</label>
+        <input type="number" min="0" value="${it.price || 0}" oninput="updateModItem(${i},'price',this.value);updateModGrandTotal()">
+      </div>
+      <button type="button" onclick="removeModItem(${i})" title="حذف" style="background:#fee2e2;color:#dc2626;border:0;border-radius:8px;height:38px;cursor:pointer;font-size:14px" ${items.length === 1 ? 'disabled style="opacity:.3"' : ''}>🗑️</button>
+    </div>`).join('');
+  updateModGrandTotal();
+}
 
-  const opt = sel.options[sel.selectedIndex];
-  const basePrice = parseFloat(opt?.dataset?.price) || 0;
-  const qty = parseInt(qtyEl.value) || 1;
+function addModItem() {
+  const firstProduct = state.products.filter(p => p.is_active)[0];
+  state._modItems = state._modItems || [];
+  state._modItems.push({ productId: firstProduct?.id, qty: 1, price: firstProduct?.price || 0 });
+  renderModItems();
+}
 
-  if (!priceEl.dataset.userEdited) {
-    priceEl.value = basePrice;
-  }
-  totalEl.value = (parseFloat(priceEl.value) || 0) * qty;
+function removeModItem(idx) {
+  if (state._modItems.length <= 1) return;
+  state._modItems.splice(idx, 1);
+  renderModItems();
+}
 
-  priceEl.oninput = () => {
-    priceEl.dataset.userEdited = 'true';
-    totalEl.value = (parseFloat(priceEl.value) || 0) * (parseInt(qtyEl.value) || 1);
-  };
+function updateModItem(idx, key, val) {
+  if (!state._modItems[idx]) return;
+  if (key === 'qty') state._modItems[idx].qty = parseInt(val) || 1;
+  else if (key === 'price') state._modItems[idx].price = parseFloat(val) || 0;
+  else state._modItems[idx][key] = val;
+}
+
+function recalcModItem(idx) {
+  const it = state._modItems[idx];
+  if (!it) return;
+  const p = state.products.find(p => String(p.id) === String(it.productId));
+  if (p) it.price = p.price;
+  renderModItems();
+}
+
+function updateModGrandTotal() {
+  const items = state._modItems || [];
+  let total = 0;
+  items.forEach(it => { total += (parseFloat(it.price) || 0) * (parseInt(it.qty) || 1); });
+  const el = document.getElementById("mo-grandtotal");
+  if (el) el.innerHTML = `<span>الإجمالي الكلي:</span><span style="font-weight:800;color:#166534">${total} جنيه</span>`;
 }
 
 function previewInstapay(event) {
@@ -2972,14 +3077,24 @@ async function saveModeratorOrder() {
   const name = document.getElementById('mo-name')?.value.trim();
   const phone = document.getElementById('mo-phone')?.value.trim();
   const address = document.getElementById('mo-address')?.value.trim();
-  const productId = document.getElementById('mo-product')?.value;
 
   if (!name) { alert('اسم العميل مطلوب'); return; }
   if (!phone) { alert('رقم الهاتف مطلوب'); return; }
   if (!address) { alert('العنوان مطلوب'); return; }
 
-  const productSel = document.getElementById('mo-product');
-  const productName = productSel?.options[productSel.selectedIndex]?.text?.split(' — ')[0] || '';
+  const items = (state._modItems || []).filter(it => it.productId && it.qty > 0);
+  if (!items.length) { alert('ضيف منتج واحد على الأقل'); return; }
+
+  // Attach product names for each item
+  const itemsWithNames = items.map(it => {
+    const p = state.products.find(p => String(p.id) === String(it.productId));
+    return {
+      product_id: parseInt(it.productId),
+      product_name: p?.name || '',
+      qty: parseInt(it.qty) || 1,
+      price: parseFloat(it.price) || 0,
+    };
+  });
 
   let instapayImage = '';
   const fileInput = document.getElementById('mo-instapay');
@@ -3000,18 +3115,13 @@ async function saveModeratorOrder() {
       customer_phone: phone,
       customer_phone2: document.getElementById('mo-phone2')?.value || '',
       customer_address: address,
-      product_id: parseInt(productId),
-      product_name: productName,
-      qty: parseInt(document.getElementById('mo-qty')?.value) || 1,
-      price: parseFloat(document.getElementById('mo-price')?.value) || 0,
-      total: parseFloat(document.getElementById('mo-total')?.value) || 0,
+      items: itemsWithNames,
       moderator_code: document.getElementById('mo-code')?.value || '',
       moderator_name: document.getElementById('mo-modname')?.value || '',
       instapay_image: instapayImage
     }});
     closeModal();
-    showToast('تم حفظ الطلب بنجاح');
-    // Refresh dashboard
+    showToast(`تم حفظ ${itemsWithNames.length} طلب بنجاح`);
     state.dashboardData = null;
     loadViewData();
   } catch (e) {
