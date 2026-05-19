@@ -890,3 +890,285 @@ h3 { font-weight: 700; }
 
 /* Remove the noisy grid pattern from #main set by old style-fx */
 #main { background-image: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM POLISH FOR INNER PAGES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tabs — premium pill style */
+.tabs-bar {
+  background: rgba(255,255,255,.7) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--bz-line) !important;
+  border-radius: 14px !important;
+  padding: 5px !important;
+  box-shadow: var(--bz-shadow-xs) !important;
+}
+.tab {
+  padding: 9px 16px !important;
+  border-radius: 9px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: var(--bz-muted) !important;
+  transition: all .2s cubic-bezier(.2,.9,.2,1) !important;
+}
+.tab:hover:not(.active) {
+  background: rgba(22,163,74,.06) !important;
+  color: var(--bz-emerald-deep) !important;
+}
+.tab.active {
+  background: linear-gradient(135deg, var(--bz-emerald), var(--bz-leaf)) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(11,61,32,.25) !important;
+}
+.tab .tab-count {
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: rgba(255,255,255,.25);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* Quick-action buttons (.qbtn) — premium */
+.qbtn {
+  border-radius: var(--bz-radius-lg) !important;
+  font-weight: 700 !important;
+  padding: 12px 8px !important;
+  transition: all .2s cubic-bezier(.2,.9,.2,1) !important;
+  box-shadow: var(--bz-shadow-xs) !important;
+}
+.qbtn:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: var(--bz-shadow-md) !important;
+}
+
+/* Page headers — refined */
+.page > div:first-child h2,
+.page > div:first-child h1 {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--bz-emerald-deep) !important;
+  letter-spacing: -0.4px;
+}
+
+/* Empty states — more inviting */
+.empty-state {
+  padding: 60px 20px !important;
+  text-align: center;
+  color: var(--bz-muted);
+}
+.empty-state-icon {
+  font-size: 64px !important;
+  margin-bottom: 16px !important;
+  opacity: .55;
+  filter: grayscale(.3);
+}
+.empty-state-text {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--bz-ink-soft);
+}
+
+/* Alerts — refined */
+.alert-red {
+  background: linear-gradient(135deg, #fef2f2, #fff) !important;
+  border: 1px solid #fecaca !important;
+  color: #991b1b !important;
+  border-radius: var(--bz-radius) !important;
+  padding: 12px 14px;
+  box-shadow: var(--bz-shadow-xs);
+}
+.alert-green {
+  background: linear-gradient(135deg, #f0fdf4, #fff) !important;
+  border: 1px solid #bbf7d0 !important;
+  color: #166534 !important;
+  border-radius: var(--bz-radius) !important;
+  padding: 12px 14px;
+  box-shadow: var(--bz-shadow-xs);
+}
+
+/* Status badges — pill style with subtle shadow */
+.badge {
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+/* Customer rows / list items */
+table tbody tr td:first-child { padding-right: 16px !important; }
+table tbody tr td:last-child  { padding-left: 16px !important; }
+table thead th:first-child { border-top-right-radius: 10px; }
+table thead th:last-child  { border-top-left-radius: 10px; }
+.card table { margin: -1px; width: calc(100% + 2px); }
+
+/* Search inputs — refined */
+input[type="search"],
+input[placeholder*="ابحث"],
+input[placeholder*="بحث"] {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.3-4.3'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: left 12px center !important;
+  background-size: 16px !important;
+  padding-left: 36px !important;
+}
+
+/* Filter chips area */
+select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: left 10px center !important;
+  background-size: 14px !important;
+  padding-left: 32px !important;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Card hover with subtle accent border */
+.card {
+  transition: all .25s cubic-bezier(.2,.9,.2,1) !important;
+}
+.stat-card {
+  transition: all .3s cubic-bezier(.2,.9,.2,1) !important;
+}
+
+/* Pagination — refined */
+.pagination {
+  background: #fff;
+  border-radius: var(--bz-radius);
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.pagination .btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+}
+.pagination .btn.active {
+  background: linear-gradient(135deg, var(--bz-emerald), var(--bz-leaf)) !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+
+/* Customer name links */
+a, .link {
+  color: var(--bz-emerald-deep);
+  font-weight: 700;
+}
+a:hover { color: var(--bz-leaf); }
+
+/* Form labels above inputs — consistent */
+.form-group {
+  margin-bottom: 14px;
+}
+
+/* Dropdowns / option menus */
+.dropdown-menu {
+  background: #fff;
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-radius-lg);
+  box-shadow: var(--bz-shadow-lg);
+  padding: 6px;
+  min-width: 180px;
+}
+
+/* Toast notifications */
+.toast {
+  border-radius: 14px !important;
+  padding: 12px 18px !important;
+  font-weight: 700 !important;
+  box-shadow: var(--bz-shadow-lg) !important;
+  border: 1px solid var(--bz-line);
+  background: rgba(255,255,255,.95) !important;
+  backdrop-filter: blur(12px);
+  color: var(--bz-ink) !important;
+}
+
+/* Timeline items */
+.tl-item {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px dashed var(--bz-line);
+}
+.tl-item:last-child { border-bottom: 0; }
+.tl-dot {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: var(--bz-shadow-xs);
+}
+
+/* Chat bubbles — refined */
+.bubble-in, .bubble-out {
+  padding: 10px 14px;
+  border-radius: 18px;
+  max-width: 70%;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: var(--bz-shadow-xs);
+}
+.bubble-in { background: #f1f5f9; border-bottom-right-radius: 6px; }
+.bubble-out { background: linear-gradient(135deg, var(--bz-leaf), var(--bz-leaf-soft)); color: #fff; border-bottom-left-radius: 6px; }
+
+/* Section title above lists */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Sticky filter bar */
+.filter-bar {
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--bz-line);
+  border-radius: var(--bz-radius-lg);
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  box-shadow: var(--bz-shadow-xs);
+}
+
+/* Modal body smoother scroll */
+.modal-body { padding: 24px; }
+.modal-ftr { padding: 16px 24px; border-top: 1px solid var(--bz-line); background: #fafbfa; }
+
+/* Premium dividers */
+hr { border: 0; border-top: 1px solid var(--bz-line-soft); margin: 18px 0; }
+
+/* Section badges (e.g. counts) */
+.tab-count, .sb-badge {
+  background: linear-gradient(135deg, #ef4444, #f97316) !important;
+}
+
+/* Refined status colors */
+.status-confirmed { background: linear-gradient(135deg, #dcfce7, #bbf7d0) !important; color: #14532d !important; }
+.status-rejected  { background: linear-gradient(135deg, #fee2e2, #fecaca) !important; color: #7f1d1d !important; }
+.status-pending   { background: linear-gradient(135deg, #fef3c7, #fde68a) !important; color: #78350f !important; }
+.status-shipped   { background: linear-gradient(135deg, #dbeafe, #bfdbfe) !important; color: #1e3a8a !important; }
+
+/* Premium dashboard hot customers card etc */
+.tooltip {
+  background: rgba(15,23,42,.95) !important;
+  backdrop-filter: blur(8px);
+  color: #fff !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  box-shadow: var(--bz-shadow-lg) !important;
+}
+
+/* Loading spinner */
+@keyframes premium-spin { to { transform: rotate(360deg); } }
+[class*="spin"] {
+  filter: drop-shadow(0 0 8px rgba(34,197,94,.4));
+}
