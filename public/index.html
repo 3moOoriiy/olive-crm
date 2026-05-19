@@ -13,30 +13,127 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=11">
 <link rel="stylesheet" href="/style-fx.css?v=15">
-<link rel="stylesheet" href="/style-premium.css?v=1">
+<link rel="stylesheet" href="/style-premium.css?v=2">
 </head>
 <body>
 
 <!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
 <div id="login-screen">
-  <div class="login-card">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="font-size:48px;margin-bottom:8px">🫒</div>
-      <h1 style="font-size:22px;font-weight:800;color:#1e4d0f">Olive CRM</h1>
-      <p style="font-size:12px;color:#6b7280;margin-top:4px">نظام إدارة علاقات العملاء</p>
-    </div>
-    <div style="padding:10px 14px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;margin-bottom:20px">
-      <p style="font-size:11px;color:#166534;font-weight:600;margin-bottom:8px">حسابات تجريبية (كلمة المرور: 123)</p>
-      <div class="flex wrap gap6">
-        <button class="btn btn-ghost btn-sm" onclick="fillLogin('admin@crm.com')">Admin</button>
-        <button class="btn btn-ghost btn-sm" onclick="fillLogin('sup@crm.com')">Supervisor</button>
-        <button class="btn btn-ghost btn-sm" onclick="fillLogin('agent1@crm.com')">Agent</button>
+  <div class="login-bg-orbs">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+    <span class="orb orb-4"></span>
+  </div>
+  <div class="login-bg-grid"></div>
+
+  <div class="login-container">
+    <!-- Brand panel -->
+    <aside class="login-brand-panel">
+      <div class="lbp-top">
+        <div class="lbp-logo">
+          <div class="lbp-logo-mark">🫒</div>
+          <div>
+            <div class="lbp-logo-name">Olive CRM</div>
+            <div class="lbp-logo-tag">Enterprise Edition</div>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="form-group"><label>البريد الإلكتروني</label><input id="l-email" type="email" placeholder="admin@crm.com"></div>
-    <div class="form-group"><label>كلمة المرور</label><input id="l-pass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <div id="l-err" class="alert alert-red hidden"></div>
-    <button class="btn btn-primary btn-lg" style="width:100%" onclick="doLogin()">دخول إلى النظام</button>
+      <div class="lbp-middle">
+        <h1 class="lbp-headline">
+          منصة إدارة الأعمال
+          <span class="lbp-gradient-text">المتكاملة</span>
+        </h1>
+        <p class="lbp-subline">
+          نظام CRM احترافي يجمع إدارة العملاء، المبيعات، الشحن، والمخزون في مكان واحد —
+          مصمم خصيصاً للأعمال المتنامية في الشرق الأوسط.
+        </p>
+        <div class="lbp-features">
+          <div class="lbp-feature">
+            <span class="lbp-feature-icon">⚡</span>
+            <div><div class="lbp-feature-title">أداء فوري</div><div class="lbp-feature-desc">معالجة آلاف الطلبات في ثوانٍ</div></div>
+          </div>
+          <div class="lbp-feature">
+            <span class="lbp-feature-icon">🔒</span>
+            <div><div class="lbp-feature-title">أمان مؤسسي</div><div class="lbp-feature-desc">تشفير + تحكم بالصلاحيات لكل مستخدم</div></div>
+          </div>
+          <div class="lbp-feature">
+            <span class="lbp-feature-icon">🌐</span>
+            <div><div class="lbp-feature-title">تكامل شامل</div><div class="lbp-feature-desc">واتساب • J&T للشحن • API للمواقع</div></div>
+          </div>
+          <div class="lbp-feature">
+            <span class="lbp-feature-icon">📊</span>
+            <div><div class="lbp-feature-title">تحليلات ذكية</div><div class="lbp-feature-desc">تقارير لحظية ولوحات أداء</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="lbp-bottom">
+        <div class="lbp-trust">
+          <div class="lbp-trust-stars">★★★★★</div>
+          <div class="lbp-trust-text">موثوق به من شركات رائدة</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Login form panel -->
+    <main class="login-form-panel">
+      <div class="login-card-v2">
+        <div class="lcv2-mobile-brand">
+          <div class="fx-brand-mark" style="margin:0 auto 12px">🫒</div>
+          <div class="lcv2-mobile-name">Olive CRM</div>
+        </div>
+        <div class="lcv2-header">
+          <h2 class="lcv2-title">مرحباً بعودتك 👋</h2>
+          <p class="lcv2-subtitle">سجّل دخولك للوصول إلى لوحة التحكم</p>
+        </div>
+
+        <div class="lcv2-form">
+          <div class="lcv2-field">
+            <label for="l-email">البريد الإلكتروني</label>
+            <div class="lcv2-input-wrap">
+              <span class="lcv2-input-icon">✉️</span>
+              <input id="l-email" type="email" placeholder="name@company.com" autocomplete="email">
+            </div>
+          </div>
+          <div class="lcv2-field">
+            <label for="l-pass">كلمة المرور</label>
+            <div class="lcv2-input-wrap">
+              <span class="lcv2-input-icon">🔐</span>
+              <input id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+          </div>
+          <div id="l-err" class="lcv2-error hidden"></div>
+          <button class="lcv2-submit" onclick="doLogin()">
+            <span class="lcv2-submit-text">دخول إلى لوحة التحكم</span>
+            <span class="lcv2-submit-arrow">←</span>
+          </button>
+        </div>
+
+        <div class="lcv2-demo">
+          <div class="lcv2-demo-label">حسابات تجريبية (كلمة المرور: <code>123</code>)</div>
+          <div class="lcv2-demo-buttons">
+            <button class="lcv2-demo-btn" onclick="fillLogin('admin@crm.com')">
+              <span class="lcv2-demo-avatar" style="background:linear-gradient(135deg,#16a34a,#22c55e)">A</span>
+              <div><div class="lcv2-demo-name">Admin</div><div class="lcv2-demo-role">مدير</div></div>
+            </button>
+            <button class="lcv2-demo-btn" onclick="fillLogin('sup@crm.com')">
+              <span class="lcv2-demo-avatar" style="background:linear-gradient(135deg,#0284c7,#0ea5e9)">S</span>
+              <div><div class="lcv2-demo-name">Supervisor</div><div class="lcv2-demo-role">سوبرفايزر</div></div>
+            </button>
+            <button class="lcv2-demo-btn" onclick="fillLogin('agent1@crm.com')">
+              <span class="lcv2-demo-avatar" style="background:linear-gradient(135deg,#c8972a,#e8b84b)">M</span>
+              <div><div class="lcv2-demo-name">Agent</div><div class="lcv2-demo-role">موظف</div></div>
+            </button>
+          </div>
+        </div>
+
+        <div class="lcv2-footer">
+          <span>محمي بـ JWT + RBAC</span>
+          <span class="lcv2-dot"></span>
+          <span>© 2026 Olive CRM</span>
+        </div>
+      </div>
+    </main>
   </div>
 </div>
 
