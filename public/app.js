@@ -2242,6 +2242,17 @@ async function deleteComplaint(id) {
 // ═══════════════ SETTINGS ═══════════════
 function renderSettings() {
   return `<div class="page"><div class="grid-2 g2">
+    <div class="card" style="padding:18px;grid-column:1/-1">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">🛒 ربط متجر Shopify</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+        لما تضغط الزرار، CRM هيدخل على متجر Shopify بـ Admin API ويسجّل الـ webhook اللي بياخد طلبات جديدة تلقائياً. لازم تكون ضايف <code>SHOPIFY_SHOP_DOMAIN</code> و <code>SHOPIFY_ADMIN_TOKEN</code> في Environment على Render.
+      </p>
+      <div class="flex gap8 wrap">
+        <button class="btn btn-primary" onclick="registerShopifyWebhook()">🔗 سجّل الـ Webhook</button>
+        <button class="btn btn-ghost" onclick="listShopifyWebhooks()">📋 عرض الـ Webhooks الحالية</button>
+      </div>
+      <div id="shopify-result" style="margin-top:12px"></div>
+    </div>
     <div class="card" style="padding:18px">
       <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">📱 ربط الواتساب</h3>
       <div style="text-align:center;padding:16px">
@@ -2716,6 +2727,62 @@ async function doBulkAction() {
     clearBulkSelection();
     showToast(`✅ ${r.message}`);
     await loadCustomersPage(state.currentPage);
+  } catch (e) { alert(e.message); }
+}
+
+// ═══════════════ SHOPIFY ADMIN UI ═══════════════
+async function registerShopifyWebhook() {
+  const out = document.getElementById('shopify-result');
+  if (out) out.innerHTML = '<div style="padding:10px;color:var(--muted)">⏳ جاري التسجيل...</div>';
+  try {
+    const r = await api('/shopify/webhook/register', { method: 'POST', body: {} });
+    if (out) {
+      out.innerHTML = `
+        <div class="alert alert-green">
+          ${r.already ? '✓ ' + r.message : '✅ ' + r.message}
+          ${r.webhook ? `<div style="font-size:11px;margin-top:6px;color:#166534">
+            ID: ${r.webhook.id} • Topic: ${esc(r.webhook.topic)} • Target: ${esc(r.webhook.address)}
+          </div>` : ''}
+        </div>`;
+    }
+    showToast(r.message);
+  } catch (e) {
+    if (out) out.innerHTML = `<div class="alert alert-red">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+async function listShopifyWebhooks() {
+  const out = document.getElementById('shopify-result');
+  if (out) out.innerHTML = '<div style="padding:10px;color:var(--muted)">⏳ جاري التحميل...</div>';
+  try {
+    const r = await api('/shopify/webhook/list');
+    const list = r.webhooks || [];
+    if (!list.length) {
+      out.innerHTML = `<div class="alert alert-red">مفيش webhooks مسجلة على المتجر</div>`;
+      return;
+    }
+    out.innerHTML = `
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">📋 ${list.length} webhook مسجل:</div>
+      ${list.map(w => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#f9fafb;border-radius:8px;margin-bottom:6px;font-size:12px">
+          <div>
+            <div style="font-weight:700">${esc(w.topic)}</div>
+            <div style="color:var(--muted);font-size:10px">→ ${esc(w.address)}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="color:#dc2626" onclick="deleteShopifyWebhook(${w.id})" title="حذف">🗑️</button>
+        </div>
+      `).join('')}`;
+  } catch (e) {
+    if (out) out.innerHTML = `<div class="alert alert-red">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+async function deleteShopifyWebhook(id) {
+  if (!confirm('متأكد من حذف هذا الـ webhook؟')) return;
+  try {
+    await api('/shopify/webhook/' + id, { method: 'DELETE' });
+    showToast('تم الحذف');
+    listShopifyWebhooks();
   } catch (e) { alert(e.message); }
 }
 

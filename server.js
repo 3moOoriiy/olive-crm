@@ -1606,6 +1606,100 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
   }
 });
 
+// ═══════════════ SHOPIFY ADMIN API (webhook auto-registration) ═══════════════
+// Config (set on Render → Environment):
+//   SHOPIFY_SHOP_DOMAIN     e.g. ziwi-olive-oil.myshopify.com
+//   SHOPIFY_ADMIN_TOKEN     e.g. shpss_xxx (Admin API access token)
+//   SHOPIFY_API_VERSION     optional, defaults to 2026-04
+//   SHOPIFY_WEBHOOK_TARGET  optional, defaults to https://olive-crm.onrender.com/api/shopify/webhook/orders
+
+function shopifyAdmin(path, options = {}) {
+  const domain = process.env.SHOPIFY_SHOP_DOMAIN;
+  const token = process.env.SHOPIFY_ADMIN_TOKEN;
+  const version = process.env.SHOPIFY_API_VERSION || '2026-04';
+  if (!domain || !token) {
+    return Promise.reject(new Error('SHOPIFY_SHOP_DOMAIN و SHOPIFY_ADMIN_TOKEN لازم يكونوا متعرّفين في Environment'));
+  }
+  const url = `https://${domain}/admin/api/${version}${path}`;
+  return fetch(url, {
+    method: options.method || 'GET',
+    headers: {
+      'X-Shopify-Access-Token': token,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(options.headers || {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  }).then(async (r) => {
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch (_) { data = { raw: text }; }
+    if (!r.ok) {
+      const msg = data?.errors ? JSON.stringify(data.errors) : `HTTP ${r.status}`;
+      throw new Error('Shopify Admin: ' + msg);
+    }
+    return data;
+  });
+}
+
+// List currently registered webhooks on the shop
+app.get('/api/shopify/webhook/list', requireAuth, requirePermission('users:manage'), async (req, res) => {
+  try {
+    const data = await shopifyAdmin('/webhooks.json');
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Register the orders/create webhook (idempotent — won't double-register)
+app.post('/api/shopify/webhook/register', requireAuth, requirePermission('users:manage'), async (req, res) => {
+  try {
+    const target =
+      process.env.SHOPIFY_WEBHOOK_TARGET ||
+      'https://olive-crm.onrender.com/api/shopify/webhook/orders';
+
+    // Check existing webhooks for this address+topic
+    const existing = await shopifyAdmin('/webhooks.json');
+    const already = (existing.webhooks || []).find(
+      (w) => w.topic === 'orders/create' && w.address === target
+    );
+    if (already) {
+      return res.json({
+        ok: true,
+        already: true,
+        webhook: already,
+        message: 'الـ Webhook متسجل مسبقاً',
+      });
+    }
+
+    // Create it
+    const created = await shopifyAdmin('/webhooks.json', {
+      method: 'POST',
+      body: {
+        webhook: {
+          topic: 'orders/create',
+          address: target,
+          format: 'json',
+        },
+      },
+    });
+    res.status(201).json({ ok: true, webhook: created.webhook, message: 'تم تسجيل الـ Webhook بنجاح' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove a webhook by ID
+app.delete('/api/shopify/webhook/:id', requireAuth, requirePermission('users:manage'), async (req, res) => {
+  try {
+    await shopifyAdmin(`/webhooks/${req.params.id}.json`, { method: 'DELETE' });
+    res.json({ ok: true, message: 'تم حذف الـ Webhook' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ═══════════════ SHOPIFY WEBHOOK ═══════════════
 // Shopify sends orders here when 'orders/create' webhook fires.
 // Configure on Shopify Dashboard → Notifications → Webhooks.
