@@ -102,6 +102,8 @@ const PERMISSION_LABELS = {
   'view:moderator_form':'فورم الطلبات',
   'view:staff_chat':    'محادثات الموظفين',
   'view:inventory':     'المخزن',
+  'view:pickup':        'Pick Up (J&T)',
+  'view:shipping':      'شركة الشحن',
   'customers:manage':   'إدارة العملاء',
   'customers:delete_all':'حذف عميل (خطر)',
   'orders:create':      'إضافة طلب',
@@ -119,11 +121,11 @@ const PERMS = {
   call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
   complaints:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
   supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
-  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
-  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
-  warehouse_manager:    ['view:dashboard', 'view:inventory'],
-  warehouse_supervisor: ['view:dashboard', 'view:inventory'],
-  warehouse_worker:     ['view:dashboard', 'view:inventory'],
+  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:pickup', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:pickup', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  warehouse_manager:    ['view:dashboard', 'view:inventory', 'view:pickup'],
+  warehouse_supervisor: ['view:dashboard', 'view:inventory', 'view:pickup'],
+  warehouse_worker:     ['view:dashboard', 'view:inventory', 'view:pickup'],
 };
 function can(perm) {
   const u = state.currentUser;
@@ -503,7 +505,8 @@ const VIEW_TITLES = {
   whatsappChat:   "واتساب",
   staffChat:      "المحادثات",
   inventory:      "المخزن",
-  shipping:       "شركة الشحن"
+  shipping:       "شركة الشحن",
+  pickup:         "Pick Up"
 };
 
 // ═══════════════ RENDER ALL ═══════════════
@@ -552,6 +555,7 @@ function renderSidebar() {
     { key: "reports",      label: "التقارير",     icon: "📈", perm: "view:reports" },
     { key: "inventory",    label: "المخزن",       icon: "🏭", perm: "view:inventory" },
     { key: "shipping",     label: "شركة الشحن",   icon: "🚚", perm: "view:shipping" },
+    { key: "pickup",       label: "Pick Up",      icon: "✋", perm: "view:pickup" },
     { key: "settings",     label: "الإعدادات",    icon: "⚙️", perm: "view:settings" },
   ];
   const links = allLinks.filter(l => !l.perm || can(l.perm));
@@ -675,6 +679,7 @@ function renderPillNav() {
     { key: 'reports',       label: 'التقارير',      icon: '📈', perm: 'view:reports' },
     { key: 'inventory',     label: 'المخزن',        icon: '🏭', perm: 'view:inventory' },
     { key: 'shipping',      label: 'شركة الشحن',    icon: '🚚', perm: 'view:shipping' },
+    { key: 'pickup',        label: 'Pick Up',       icon: '✋', perm: 'view:pickup' },
     { key: 'settings',      label: 'الإعدادات',     icon: '⚙️', perm: 'view:settings' },
   ].filter(it => !it.perm || can(it.perm));
   const activeKey = state.view === 'customerDetail' ? 'customers' : state.view;
@@ -783,6 +788,7 @@ function renderContent() {
   else if (v === "staffChat")      el.innerHTML = renderStaffChat();
   else if (v === "inventory")    { el.innerHTML = renderInventory(); loadInventoryFrame(); }
   else if (v === "shipping")     { el.innerHTML = renderShipping(); loadShippingData(); }
+  else if (v === "pickup")         el.innerHTML = renderPickup();
   if (typeof animateCountUps === 'function') animateCountUps();
   if (typeof refreshBulkBar === 'function') refreshBulkBar();
 }
@@ -907,6 +913,168 @@ async function showShippingTrack(waybill) {
     `).join('') : '<div style="padding:20px;text-align:center;color:var(--muted)">مفيش تحديثات حركة لسه</div>';
     openModal(`📍 تتبع الشحنة ${waybill}`, html, `<button class="btn btn-primary" onclick="closeModal()">إغلاق</button>`);
   } catch (e) { alert(e.message); }
+}
+
+// ═══════════════ PICK UP (J&T Excel Automation) ═══════════════
+function renderPickup() {
+  return `<div class="page">
+    <div class="page-header" style="margin-bottom:18px">
+      <div>
+        <h2 style="font-size:22px;font-weight:800">✋ Pick Up — J&T Excel Automation</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px">دمج وتحديث شيتات J&T (My Order • My Waybill • البيك اب • مصاريف الشحن)</p>
+      </div>
+    </div>
+
+    <div class="grid-2 g2" style="gap:14px">
+      <!-- OP 1: Merge 3 -->
+      <div class="card" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6a4c2d,#8b6f47);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff">☰</div>
+          <div>
+            <div style="font-weight:800;font-size:15px">دمج 3 شيتات Excel</div>
+            <div style="font-size:11px;color:var(--muted)">My Order + My Waybill + البيك اب</div>
+          </div>
+        </div>
+        <div class="form-group"><label>ملف My Order</label><input type="file" id="pk1-order" accept=".xlsx,.xls"></div>
+        <div class="form-group"><label>ملف My Waybill</label><input type="file" id="pk1-waybill" accept=".xlsx,.xls"></div>
+        <div class="form-group"><label>ملف البيك اب</label><input type="file" id="pk1-pickup" accept=".xlsx,.xls"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="pickupOp1()">⚙️ ابدأ الدمج وحمّل</button>
+        <div id="pk1-result" style="margin-top:10px"></div>
+      </div>
+
+      <!-- OP 2: Transfer Order only -->
+      <div class="card" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#2a5caa,#4181d4);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff">↔</div>
+          <div>
+            <div style="font-weight:800;font-size:15px">نقل من My Order فقط</div>
+            <div style="font-size:11px;color:var(--muted)">تحديث البيك اب من ملف My Order</div>
+          </div>
+        </div>
+        <div class="form-group"><label>ملف My Order</label><input type="file" id="pk2-source" accept=".xlsx,.xls"></div>
+        <div class="form-group"><label>ملف البيك اب</label><input type="file" id="pk2-pickup" accept=".xlsx,.xls"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="pickupOp2()">⚙️ ابدأ النقل وحمّل</button>
+        <div id="pk2-result" style="margin-top:10px"></div>
+      </div>
+
+      <!-- OP 3: Transfer Waybill only -->
+      <div class="card" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#7a3b6a,#9b5089);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff">↔</div>
+          <div>
+            <div style="font-weight:800;font-size:15px">نقل من My Waybill فقط</div>
+            <div style="font-size:11px;color:var(--muted)">تحديث البيك اب من ملف My Waybill</div>
+          </div>
+        </div>
+        <div class="form-group"><label>ملف My Waybill</label><input type="file" id="pk3-source" accept=".xlsx,.xls"></div>
+        <div class="form-group"><label>ملف البيك اب</label><input type="file" id="pk3-pickup" accept=".xlsx,.xls"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="pickupOp3()">⚙️ ابدأ النقل وحمّل</button>
+        <div id="pk3-result" style="margin-top:10px"></div>
+      </div>
+
+      <!-- OP 4: Shipping costs -->
+      <div class="card" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#1e6b35,#2dbe4e);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff">💰</div>
+          <div>
+            <div style="font-weight:800;font-size:15px">مصاريف الشحن</div>
+            <div style="font-size:11px;color:var(--muted)">نقل Total Freight لعمود Shipping Costs</div>
+          </div>
+        </div>
+        <div class="form-group"><label>ملف البيك اب</label><input type="file" id="pk4-pickup" accept=".xlsx,.xls"></div>
+        <div class="form-group"><label>ملف مصاريف الشحن</label><input type="file" id="pk4-shipping" accept=".xlsx,.xls"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="pickupOp4()">⚙️ ابدأ النقل وحمّل</button>
+        <div id="pk4-result" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function pickupCall(url, formData, resultId, expectedDefaults = {}) {
+  const out = document.getElementById(resultId);
+  if (out) out.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:12px">⏳ جاري المعالجة...</div>';
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const res = await fetch('/api' + url, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body: formData,
+    });
+    if (!res.ok) {
+      const ct = res.headers.get('content-type') || '';
+      const errMsg = ct.includes('json') ? (await res.json()).error : await res.text();
+      throw new Error(errMsg || 'HTTP ' + res.status);
+    }
+    const total = res.headers.get('X-Pickup-Total') || expectedDefaults.total || '?';
+    const added = res.headers.get('X-Pickup-Added');
+    const matched = res.headers.get('X-Pickup-Matched');
+    const updated = res.headers.get('X-Pickup-Updated');
+    const statsRaw = res.headers.get('X-Pickup-Stats');
+    let statsHtml = '';
+    if (statsRaw) {
+      try {
+        const stats = JSON.parse(decodeURIComponent(statsRaw));
+        statsHtml = '<div style="margin-top:6px;font-size:11px;color:#166534">' +
+          Object.entries(stats).map(([k, v]) => `${esc(k)}: <b>${v}/${total}</b>`).join(' • ') +
+        '</div>';
+      } catch (_) {}
+    }
+    const filenameHeader = res.headers.get('content-disposition') || '';
+    const m = filenameHeader.match(/filename="([^"]+)"/);
+    const filename = m ? decodeURIComponent(m[1]) : 'pickup-result.xlsx';
+    const blob = await res.blob();
+    const url2 = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url2; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url2), 1000);
+    if (out) {
+      out.innerHTML = `<div class="alert alert-green">
+        ✅ تم! إجمالي: <b>${total}</b>
+        ${added ? ` • مضاف جديد: <b>${added}</b>` : ''}
+        ${matched ? ` • تطابقات: <b>${matched}</b>` : ''}
+        ${updated ? ` • تم تحديث: <b>${updated}</b>` : ''}
+        ${statsHtml}
+        <div style="font-size:11px;margin-top:4px">📥 تم تنزيل: ${esc(filename)}</div>
+      </div>`;
+    }
+    showToast('✅ تم تنزيل الملف');
+  } catch (e) {
+    if (out) out.innerHTML = `<div class="alert alert-red">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+function pickupOp1() {
+  const order = document.getElementById('pk1-order')?.files[0];
+  const waybill = document.getElementById('pk1-waybill')?.files[0];
+  const pickup = document.getElementById('pk1-pickup')?.files[0];
+  if (!order || !waybill || !pickup) { alert('ارفع 3 ملفات: My Order و My Waybill و البيك اب'); return; }
+  const fd = new FormData();
+  fd.append('order', order); fd.append('waybill', waybill); fd.append('pickup', pickup);
+  pickupCall('/pickup/merge-three', fd, 'pk1-result');
+}
+function pickupOp2() {
+  const source = document.getElementById('pk2-source')?.files[0];
+  const pickup = document.getElementById('pk2-pickup')?.files[0];
+  if (!source || !pickup) { alert('ارفع ملف My Order وملف البيك اب'); return; }
+  const fd = new FormData();
+  fd.append('source', source); fd.append('pickup', pickup);
+  pickupCall('/pickup/transfer-order', fd, 'pk2-result');
+}
+function pickupOp3() {
+  const source = document.getElementById('pk3-source')?.files[0];
+  const pickup = document.getElementById('pk3-pickup')?.files[0];
+  if (!source || !pickup) { alert('ارفع ملف My Waybill وملف البيك اب'); return; }
+  const fd = new FormData();
+  fd.append('source', source); fd.append('pickup', pickup);
+  pickupCall('/pickup/transfer-waybill', fd, 'pk3-result');
+}
+function pickupOp4() {
+  const pickup = document.getElementById('pk4-pickup')?.files[0];
+  const shipping = document.getElementById('pk4-shipping')?.files[0];
+  if (!pickup || !shipping) { alert('ارفع ملف البيك اب وملف مصاريف الشحن'); return; }
+  const fd = new FormData();
+  fd.append('pickup', pickup); fd.append('shipping', shipping);
+  pickupCall('/pickup/shipping-costs', fd, 'pk4-result');
 }
 
 async function shipOrderToJT(orderId) {

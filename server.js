@@ -14,6 +14,9 @@ const { initWhatsApp, getStatus, sendMessage } = require('./whatsapp');
 const jt = require('./jt');
 const cors = require('cors');
 const crypto = require('crypto');
+const multer = require('multer');
+const pickup = require('./pickup');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 // ═══════════════ CONSTANTS ═══════════════
 const VALID_STATUSES = ['new', 'first_attempt', 'second_attempt', 'third_attempt', 'confirmed', 'rejected', 'waiting_transfer', 'postponed', 'shipped', 'duplicate'];
@@ -1965,6 +1968,113 @@ app.post('/api/jt/complaint', requireAuth, requirePermission('complaints:manage'
     res.status(500).json({ error: err.message });
   }
 });
+
+// ═══════════════ PICK UP (Excel automation, ports jt_automation.py) ═══════════════
+function sendXlsxBuffer(res, buf, filename) {
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+  res.setHeader('X-Pickup-Result', 'success');
+  res.send(buf);
+}
+
+// Op 1 — merge My Order + My Waybill + Pickup (3 files)
+app.post('/api/pickup/merge-three', requireAuth, requirePermission('view:pickup'),
+  upload.fields([{ name: 'order', maxCount: 1 }, { name: 'waybill', maxCount: 1 }, { name: 'pickup', maxCount: 1 }]),
+  (req, res) => {
+    try {
+      const order = req.files?.order?.[0];
+      const waybill = req.files?.waybill?.[0];
+      const pickupFile = req.files?.pickup?.[0];
+      if (!order || !waybill || !pickupFile) {
+        return res.status(400).json({ error: 'لازم ترفع 3 ملفات: My Order و My Waybill و البيك اب' });
+      }
+      const result = pickup.mergeThree({
+        orderBuf: order.buffer,
+        waybillBuf: waybill.buffer,
+        pickupBuf: pickupFile.buffer,
+      });
+      res.setHeader('X-Pickup-Total', result.total);
+      res.setHeader('X-Pickup-Added', result.added);
+      res.setHeader('X-Pickup-Stats', encodeURIComponent(JSON.stringify(result.stats)));
+      sendXlsxBuffer(res, result.buffer, 'شيت_البيك_اب_النسخة_النهائية.xlsx');
+    } catch (err) {
+      console.error('pickup merge-three error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// Op 2 — transfer from My Order only
+app.post('/api/pickup/transfer-order', requireAuth, requirePermission('view:pickup'),
+  upload.fields([{ name: 'source', maxCount: 1 }, { name: 'pickup', maxCount: 1 }]),
+  (req, res) => {
+    try {
+      const src = req.files?.source?.[0];
+      const pickupFile = req.files?.pickup?.[0];
+      if (!src || !pickupFile) return res.status(400).json({ error: 'ارفع ملف My Order وملف البيك اب' });
+      const result = pickup.transferSingle({
+        srcBuf: src.buffer,
+        pickupBuf: pickupFile.buffer,
+        preferredSheet: 'My Order',
+      });
+      res.setHeader('X-Pickup-Total', result.total);
+      res.setHeader('X-Pickup-Added', result.added);
+      res.setHeader('X-Pickup-Matched', result.matched);
+      res.setHeader('X-Pickup-Stats', encodeURIComponent(JSON.stringify(result.stats)));
+      sendXlsxBuffer(res, result.buffer, 'البيك_اب_محدث_My_Order.xlsx');
+    } catch (err) {
+      console.error('pickup transfer-order error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// Op 3 — transfer from My Waybill only
+app.post('/api/pickup/transfer-waybill', requireAuth, requirePermission('view:pickup'),
+  upload.fields([{ name: 'source', maxCount: 1 }, { name: 'pickup', maxCount: 1 }]),
+  (req, res) => {
+    try {
+      const src = req.files?.source?.[0];
+      const pickupFile = req.files?.pickup?.[0];
+      if (!src || !pickupFile) return res.status(400).json({ error: 'ارفع ملف My Waybill وملف البيك اب' });
+      const result = pickup.transferSingle({
+        srcBuf: src.buffer,
+        pickupBuf: pickupFile.buffer,
+        preferredSheet: 'My Waybill',
+      });
+      res.setHeader('X-Pickup-Total', result.total);
+      res.setHeader('X-Pickup-Added', result.added);
+      res.setHeader('X-Pickup-Matched', result.matched);
+      res.setHeader('X-Pickup-Stats', encodeURIComponent(JSON.stringify(result.stats)));
+      sendXlsxBuffer(res, result.buffer, 'البيك_اب_محدث_My_Waybill.xlsx');
+    } catch (err) {
+      console.error('pickup transfer-waybill error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// Op 4 — shipping costs
+app.post('/api/pickup/shipping-costs', requireAuth, requirePermission('view:pickup'),
+  upload.fields([{ name: 'pickup', maxCount: 1 }, { name: 'shipping', maxCount: 1 }]),
+  (req, res) => {
+    try {
+      const pickupFile = req.files?.pickup?.[0];
+      const shipping = req.files?.shipping?.[0];
+      if (!pickupFile || !shipping) return res.status(400).json({ error: 'ارفع ملف البيك اب وملف مصاريف الشحن' });
+      const result = pickup.shippingCosts({
+        pickupBuf: pickupFile.buffer,
+        shippingBuf: shipping.buffer,
+      });
+      res.setHeader('X-Pickup-Total', result.total);
+      res.setHeader('X-Pickup-Updated', result.updated);
+      sendXlsxBuffer(res, result.buffer, 'البيك_اب_مصاريف_الشحن.xlsx');
+    } catch (err) {
+      console.error('pickup shipping-costs error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
 
 // ═══════════════ START ═══════════════
 const PORT = process.env.PORT || 3000;
