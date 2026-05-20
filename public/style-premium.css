@@ -1162,6 +1162,77 @@ a:hover { color: var(--bz-leaf); }
 .modal-body { padding: 24px; }
 .modal-ftr { padding: 16px 24px; border-top: 1px solid var(--bz-line); background: #fafbfa; }
 
+/* ═══════════════ Mobile customers PAGE header — compact ═══════════════ */
+@media (max-width: 768px) {
+  .page > .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+  /* Search box full width, slim */
+  .page > .page-header > .search-wrap,
+  .page > .page-header > div:has(> input[type="text"]) {
+    flex: 1 !important;
+    width: 100%;
+  }
+  /* Filters in a horizontal scrollable row */
+  .page > .page-header > select {
+    flex: 1 1 30%;
+    min-width: 0 !important;
+    width: auto !important;
+    height: 38px;
+    font-size: 12px !important;
+    padding: 0 28px 0 8px !important;
+  }
+  /* Wrap selects in a horizontal scrollable container */
+  .page > .page-header {
+    flex-wrap: wrap;
+  }
+  /* Buttons: compact row */
+  .page > .page-header > .btn {
+    flex: 1 1 45%;
+    height: 36px;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+  .page > .page-header > .btn.btn-sm {
+    flex: 0 1 auto;
+    height: 32px;
+    padding: 0 10px !important;
+  }
+  /* Status tabs — keep visible */
+  .tabs-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none;
+  }
+  .tabs-bar::-webkit-scrollbar { display: none; }
+  .tabs-bar .tab {
+    flex-shrink: 0;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+  /* Hide the verbose counter line on small screens — saves space */
+  .page > .flex.wrap.gap6 > span {
+    font-size: 11px !important;
+    color: var(--bz-muted);
+  }
+  /* Empty state more compact + centered */
+  .empty-state {
+    padding: 30px 16px !important;
+  }
+  .empty-state-icon {
+    font-size: 48px !important;
+  }
+  .empty-state-text {
+    font-size: 13px !important;
+  }
+}
+
 /* ═══════════════ Mobile customer list — premium card layout ═══════════════ */
 @media (max-width: 768px) {
   .tbl-wrap {
