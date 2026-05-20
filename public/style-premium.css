@@ -1162,78 +1162,117 @@ a:hover { color: var(--bz-leaf); }
 .modal-body { padding: 24px; }
 .modal-ftr { padding: 16px 24px; border-top: 1px solid var(--bz-line); background: #fafbfa; }
 
-/* ═══════════════ Mobile customer list — card layout ═══════════════ */
+/* ═══════════════ Mobile customer list — premium card layout ═══════════════ */
 @media (max-width: 768px) {
-  .tbl-wrap { overflow: visible; }
+  .tbl-wrap {
+    overflow: visible;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .card:has(.tbl) {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
   .tbl thead { display: none; }
-  .tbl, .tbl tbody, .tbl tr, .tbl td { display: block; width: 100%; }
+  .tbl, .tbl tbody { display: block; width: 100%; }
   .tbl tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "check name status"
+      "check phone status"
+      "check addr addr"
+      "check meta meta"
+      "btn btn btn";
+    column-gap: 12px;
+    row-gap: 4px;
     background: #fff;
     border: 1px solid var(--bz-line);
     border-radius: 14px;
-    padding: 14px;
+    padding: 14px 14px 0;
     margin-bottom: 10px;
     box-shadow: var(--bz-shadow-xs);
-    position: relative;
-    transition: all .25s ease;
+    transition: all .2s ease;
   }
-  .tbl tr:hover {
-    border-color: rgba(22,163,74,.3);
+  .tbl tr:active {
+    transform: scale(.98);
     box-shadow: var(--bz-shadow-md);
-    transform: translateY(-2px);
+    border-color: rgba(22,163,74,.4);
   }
   .tbl td {
     border: 0 !important;
-    padding: 4px 0 !important;
-    text-align: right;
-  }
-  .tbl td:first-child {  /* checkbox cell */
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    width: auto !important;
     padding: 0 !important;
+    text-align: right;
+    display: block;
   }
-  /* Customer name cell — make it the title */
+  /* Cell mapping by position (skip hidden ones) */
+  .tbl td:nth-child(1) { grid-area: check; align-self: start; padding-top: 4px !important; }   /* checkbox */
+  .tbl td:nth-child(2) { grid-area: name; }                                                     /* name */
+  .tbl td:nth-child(3) { grid-area: phone; }                                                    /* phone */
+  .tbl td:nth-child(4) { grid-area: addr; }                                                     /* address (hidden on mobile by .mob-hide but kept here in case) */
+  .tbl td:nth-child(6) { grid-area: status; align-self: start; }                                /* status badge */
+  .tbl td:nth-child(9) { grid-area: meta; }                                                     /* last contact */
+  .tbl td:nth-child(10), .tbl td:last-child {
+    grid-area: btn;
+    margin: 8px -14px 0;
+    padding: 10px 14px !important;
+    border-top: 1px solid var(--bz-line-soft) !important;
+  }
+  /* Hide truly redundant ones on mobile */
+  .tbl td.mob-hide { display: none !important; }
+
+  /* Style each section */
+  .tbl td:nth-child(2) {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--bz-emerald-deep);
+  }
   .tbl td:nth-child(2) > div > div > div:first-child {
     font-size: 15px !important;
     font-weight: 800 !important;
-    color: var(--bz-emerald-deep);
-    margin-bottom: 2px;
+    color: var(--bz-emerald-deep) !important;
+    margin: 0 !important;
   }
-  /* Phone — show with prefix */
-  .tbl td:nth-child(3)::before {
-    content: '📞 ';
+  .tbl td:nth-child(2) > div > div > div:last-child {
+    font-size: 11px;
     color: var(--bz-muted);
+    font-weight: 500;
+    margin-top: 2px;
   }
   .tbl td:nth-child(3) {
-    font-size: 13px !important;
+    font-size: 12.5px !important;
     color: var(--bz-ink-soft);
+    font-weight: 600;
+    direction: ltr;
+    text-align: right;
+    font-family: 'SF Mono', Menlo, monospace;
   }
-  /* Status badge cell - center it */
-  .tbl td:nth-child(6) {
-    margin-top: 6px;
-  }
-  /* Last-contact cell */
-  .tbl td:nth-child(9)::before {
-    content: '⏰ ';
+  .tbl td:nth-child(3)::before {
+    content: '📞 ';
+    margin-left: 4px;
   }
   .tbl td:nth-child(9) {
     font-size: 11px !important;
-    color: var(--bz-muted);
-    margin-top: 2px;
+    color: var(--bz-muted) !important;
   }
-  /* Action button cell */
-  .tbl td:last-child {
-    margin-top: 8px;
-    border-top: 1px dashed var(--bz-line-soft) !important;
-    padding-top: 8px !important;
+  .tbl td:nth-child(9)::before {
+    content: '⏰ ';
   }
   .tbl td:last-child .btn {
     width: 100%;
     background: linear-gradient(135deg, var(--bz-emerald), var(--bz-leaf)) !important;
     color: #fff !important;
     font-weight: 700;
+    font-size: 13px;
+    height: 36px;
+  }
+  /* Bulk action bar on mobile */
+  #bulk-action-bar {
+    width: 100%;
+    justify-content: space-between !important;
+    margin-top: 8px;
   }
 }
 

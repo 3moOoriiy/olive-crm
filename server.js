@@ -349,6 +349,23 @@ app.post('/api/customers/bulk-status', requireAuth, requirePermission('customers
 });
 
 // ═══════════════ DELETE ALL CUSTOMERS ═══════════════
+// Delete a single customer (with all related data)
+app.delete('/api/customers/:id', requireAuth, requirePermission('customers:delete'), (req, res) => {
+  const db = getDB();
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID غير صالح' });
+
+  const customer = db.get('SELECT id, name FROM customers WHERE id = ?', [id]);
+  if (!customer) return res.status(404).json({ error: 'العميل غير موجود' });
+
+  db.run('DELETE FROM messages WHERE customer_id = ?', [id]);
+  db.run('DELETE FROM timeline WHERE customer_id = ?', [id]);
+  db.run('DELETE FROM orders WHERE customer_id = ?', [id]);
+  db.run('DELETE FROM customers WHERE id = ?', [id]);
+
+  res.json({ deleted: 1, customerName: customer.name, message: `تم حذف العميل ${customer.name}` });
+});
+
 app.delete('/api/customers/all', requireAuth, requirePermission('customers:delete_all'), (req, res) => {
   const db = getDB();
   const count = db.get('SELECT COUNT(*) as c FROM customers').c;
@@ -664,6 +681,57 @@ app.post('/api/customers/:id/orders', requireAuth, (req, res) => {
 
   io.emit('customer:updated', { customer: db.get('SELECT * FROM customers WHERE id = ?', [customerId]) });
   res.status(201).json(order);
+});
+
+// Edit an existing order — replace items[] and recompute totals
+app.put('/api/orders/:id', requireAuth, requirePermission('orders:manage'), (req, res) => {
+  const db = getDB();
+  const orderId = parseInt(req.params.id);
+  const order = db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+  if (!order) return res.status(404).json({ error: 'الطلب غير موجود' });
+
+  // Ownership check for limited roles
+  const ownerCheck = checkAgentOwnership(req, res, order.customer_id);
+  if (ownerCheck.error) return res.status(ownerCheck.status).json({ error: ownerCheck.msg });
+
+  const { items, address } = req.body || {};
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'لازم على الأقل منتج واحد' });
+
+  // Resolve each item from products table (so prices stay authoritative)
+  const resolved = [];
+  let grandTotal = 0;
+  let totalQty = 0;
+  for (const it of items) {
+    const product = db.get('SELECT * FROM products WHERE id = ?', [it.productId]);
+    if (!product) return res.status(400).json({ error: `المنتج ID ${it.productId} غير موجود` });
+    const q = parseInt(it.qty) || 1;
+    const p = parseFloat(it.price) > 0 ? parseFloat(it.price) : product.price;
+    const total = p * q;
+    grandTotal += total;
+    totalQty += q;
+    resolved.push({ productId: product.id, productName: product.name, qty: q, price: p, total });
+  }
+
+  const first = resolved[0];
+  const productNameSummary = resolved.length === 1
+    ? first.productName
+    : `${first.productName} +${resolved.length - 1} منتجات`;
+  const itemsJson = resolved.length > 1 ? JSON.stringify(resolved) : '';
+
+  db.run(`
+    UPDATE orders
+    SET product_id = ?, product_name = ?, qty = ?, price = ?, total = ?, items_json = ?, address = COALESCE(NULLIF(?, ''), address)
+    WHERE id = ?
+  `, [first.productId, productNameSummary, totalQty, first.price, grandTotal, itemsJson, address || '', orderId]);
+
+  const tlLabels = resolved.map(r => `${r.productName} × ${r.qty}`).join(' • ');
+  db.run(`
+    INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
+    VALUES (?, 'order', ?, '✏️', ?, ?, datetime('now'))
+  `, [order.customer_id, `تعديل طلب #${orderId}: ${tlLabels} — إجمالي ${grandTotal} جنيه`, req.user.name, req.user.id]);
+
+  const updated = db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+  res.json(updated);
 });
 
 app.patch('/api/orders/:id/status', requireAuth, (req, res) => {

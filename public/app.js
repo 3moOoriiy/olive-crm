@@ -105,7 +105,8 @@ const PERMISSION_LABELS = {
   'view:pickup':        'Pick Up (J&T)',
   'view:shipping':      'شركة الشحن',
   'customers:manage':   'إدارة العملاء',
-  'customers:delete_all':'حذف عميل (خطر)',
+  'customers:delete':   'حذف عميل واحد',
+  'customers:delete_all':'حذف كل العملاء (خطر)',
   'orders:create':      'إضافة طلب',
   'orders:manage':      'إدارة الطلبات',
   'calls:log':          'تسجيل المكالمات',
@@ -121,8 +122,8 @@ const PERMS = {
   call_center: ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send'],
   complaints:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
   supervisor:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:moderator_form', 'view:staff_chat', 'customers:manage', 'orders:create', 'calls:log', 'whatsapp:send', 'complaints:manage'],
-  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:pickup', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
-  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:pickup', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete_all'],
+  operations:  ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:pickup', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete', 'customers:delete_all'],
+  admin:       ['view:dashboard', 'view:customers', 'view:followups', 'view:orders', 'view:whatsapp', 'view:complaints', 'view:performance', 'view:reports', 'view:settings', 'view:moderator_form', 'view:staff_chat', 'view:inventory', 'view:pickup', 'view:shipping', 'customers:manage', 'orders:create', 'orders:manage', 'calls:log', 'whatsapp:send', 'complaints:manage', 'users:manage', 'users:delete', 'products:manage', 'templates:manage', 'customers:delete', 'customers:delete_all'],
   warehouse_manager:    ['view:dashboard', 'view:inventory', 'view:pickup'],
   warehouse_supervisor: ['view:dashboard', 'view:inventory', 'view:pickup'],
   warehouse_worker:     ['view:dashboard', 'view:inventory', 'view:pickup'],
@@ -1332,7 +1333,7 @@ function renderCustomers() {
     <button class="btn btn-primary" onclick="openAddCustomerModal()">➕ عميل جديد</button>
     <button class="btn btn-accent" onclick="openImportModal()">📥 استيراد من Excel</button>
     ${can('users:manage') ? `<button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="openRedistributeModal()" title="توزيع العملاء بالتساوي على موظفي الكول سنتر">⚖️ توزيع</button>` : ''}
-    ${can('customers:delete_all') ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="deleteAllCustomers()">🗑️ مسح الكل</button>` : ''}
+    ${can('customers:delete', 'customers:delete_all') ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="deleteAllCustomers()">🗑️ مسح الكل</button>` : ''}
     <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelFile(event)">
   </div>
 
@@ -1474,6 +1475,7 @@ function renderCustomerDetail() {
                   ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="رقم الشحنة: ${esc(o.jt_waybill_no)}">🚚 ${esc(JT_STATUS_LABELS[o.jt_status] || o.jt_status || 'مشحون')}</span>`
                   : `<button class="btn btn-sm" style="background:#1e4d0f;color:#fff;border:0;padding:4px 10px;font-size:11px" onclick="shipOrderToJT(${o.id})" title="تحويل لشركة الشحن J&T">🚚 تحويل لشركة الشحن</button>`
                 }
+                ${can('orders:manage') ? `<button class="btn btn-ghost btn-sm" onclick="openEditOrderModal(${o.id})" title="تعديل الطلب">✏️</button>` : ''}
                 <button class="btn btn-ghost btn-sm" onclick="printInvoice(${o.id})" title="طباعة فاتورة">🖨️</button>
               </div>
             </div>
@@ -1525,6 +1527,7 @@ function renderCustomerDetail() {
       <div style="font-size:12px;color:var(--muted);margin-top:2px">${[c.region, c.address].filter(Boolean).map(esc).join(' — ')} • ${esc(c.source)} • ${fmtDate(c.created_at)}${lastOrderDate ? ` • آخر طلب: <b style="color:${isReturning ? '#92400e' : 'var(--text)'}">${fmtDate(lastOrderDate)}</b>` : ''}</div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="openEditCustomerModal()">✏️ تعديل</button>
+    ${can('customers:delete') ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="deleteCurrentCustomer()" title="حذف نهائي للعميل">🗑️ حذف</button>` : ''}
   </div>
 
   <div class="grid-3 g3" style="margin-bottom:18px">
@@ -2639,6 +2642,54 @@ async function saveLogCall() {
 }
 
 // ═══════════════ ADD ORDER MODAL ═══════════════
+function openEditOrderModal(orderId) {
+  const c = state.selectedCustomer;
+  if (!c) return;
+  const order = (c.orders || []).find(o => o.id === orderId);
+  if (!order) { alert('الطلب غير موجود'); return; }
+
+  // Build initial items from existing order (items_json or single)
+  let initialItems = [];
+  if (order.items_json) {
+    try { initialItems = JSON.parse(order.items_json); } catch (_) {}
+  }
+  if (!initialItems.length) {
+    initialItems = [{ productId: order.product_id, qty: order.qty, price: order.price }];
+  }
+  state._orderItems = initialItems.map(it => ({
+    productId: it.productId || it.product_id,
+    qty: it.qty,
+    price: it.price,
+  }));
+  state._editingOrderId = orderId;
+
+  openModal(`✏️ تعديل الطلب #${orderId}`, `
+    <div id="ord-items"></div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addOrderItem()" style="margin-bottom:12px;border:1px dashed var(--border);width:100%;padding:10px">➕ إضافة منتج آخر</button>
+    <div class="form-group"><label>عنوان التسليم</label><input id="ord-addr" type="text" value="${esc(order.address || '')}"></div>
+    <div id="ord-total" style="padding:12px 14px;background:#f0fdf4;border-radius:8px;display:flex;justify-content:space-between;font-size:14px"><span>الإجمالي:</span><span style="font-weight:800;color:#166534">${order.total} جنيه</span></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button><button class="btn btn-primary" onclick="saveEditedOrder()">💾 حفظ التعديلات</button>`);
+  renderOrderItems();
+}
+
+async function saveEditedOrder() {
+  const c = state.selectedCustomer;
+  const orderId = state._editingOrderId;
+  if (!c || !orderId) return;
+  const items = (state._orderItems || []).filter(it => it.productId && it.qty > 0);
+  if (!items.length) { alert('ضيف منتج واحد على الأقل'); return; }
+  try {
+    await api('/orders/' + orderId, { method: 'PUT', body: {
+      items: items.map(it => ({ productId: parseInt(it.productId), qty: parseInt(it.qty) || 1, price: parseFloat(it.price) || 0 })),
+      address: document.getElementById('ord-addr')?.value || '',
+    }});
+    closeModal();
+    showToast(`✅ تم تعديل الطلب بنجاح`);
+    state._editingOrderId = null;
+    await selectCustomer(c.id);
+  } catch (e) { alert(e.message); }
+}
+
 function openAddOrderModal() {
   const c = state.selectedCustomer; if (!c) return;
   state._orderItems = [{ productId: state.products[0]?.id, qty: 1 }];
@@ -2794,6 +2845,26 @@ async function saveFollowUp() {
 
 // ═══════════════ EXCEL IMPORT ═══════════════
 let importedRows = [];
+
+async function deleteCurrentCustomer() {
+  const c = state.selectedCustomer;
+  if (!c) return;
+  const name = c.name;
+  const ordersCount = (c.orders || []).length;
+  const warning = ordersCount
+    ? `العميل عنده ${ordersCount} طلب — هيتمسحوا كلهم نهائياً.\n\n`
+    : '';
+  if (!confirm(`${warning}حذف العميل "${name}" نهائياً؟\nمفيش رجوع بعد كده.`)) return;
+  const confirmName = prompt(`اكتب اسم العميل عشان تأكد الحذف:\n"${name}"`);
+  if (confirmName !== name) { alert('الاسم غير مطابق — تم الإلغاء'); return; }
+  try {
+    await api('/customers/' + c.id, { method: 'DELETE' });
+    showToast(`✅ تم حذف ${name}`);
+    goBack();
+    state.customers = (state.customers || []).filter(x => x.id !== c.id);
+    await loadCustomersPage(state.currentPage);
+  } catch (e) { alert(e.message); }
+}
 
 async function deleteAllCustomers() {
   const count = state.totalItems || 0;
