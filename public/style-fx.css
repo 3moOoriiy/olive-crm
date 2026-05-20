@@ -514,6 +514,73 @@ table tbody tr:hover {
 /* Hide menu button when inside inventory (frees up space) */
 body.crm-inventory-view #menu-btn { display: none !important; }
 
+/* ─── Hide sidebar entirely (all nav is in the top PillNav now) ─── */
+#sidebar { display: none !important; }
+#menu-btn { display: none !important; }
+.overlay { display: none !important; }
+#main { margin-right: 0 !important; }
+@media (max-width: 768px) {
+  #main { margin-right: 0 !important; width: 100%; }
+}
+
+/* Compact logout + WhatsApp status pills in topbar */
+.fx-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.fx-wa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.fx-wa-chip.connected {
+  background: rgba(34,197,94,.1);
+  color: #166534;
+  border-color: rgba(34,197,94,.4);
+}
+.fx-wa-chip.disconnected {
+  background: rgba(239,68,68,.08);
+  color: #991b1b;
+  border-color: rgba(239,68,68,.3);
+}
+.fx-wa-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.fx-wa-chip.connected .fx-wa-dot { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+.fx-wa-chip.disconnected .fx-wa-dot { background: #ef4444; }
+.fx-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(239,68,68,.1);
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all .2s ease;
+}
+.fx-logout-btn:hover {
+  background: #dc2626;
+  color: #fff;
+  transform: translateY(-1px);
+}
+@media (max-width: 768px) {
+  .fx-wa-chip { padding: 4px 8px; font-size: 10px; }
+  .fx-wa-chip .fx-wa-text { display: none; }
+  .fx-logout-btn { width: 28px; height: 28px; font-size: 12px; }
+}
+
 /* ─── Online users indicator ─── */
 #topbar-online { display: flex !important; align-items: center; gap: 8px; padding: 0 4px; flex-shrink: 0; }
 .online-cluster {

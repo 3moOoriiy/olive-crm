@@ -17,6 +17,15 @@ async function api(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined
   });
   if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+  // Detect HTML response (usually means endpoint doesn't exist on this server build)
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    if (text.trim().startsWith('<')) {
+      throw new Error(`السيرفر يحتاج إعادة تشغيل — هذا الـ endpoint غير موجود (${res.status}). اعمل Ctrl+C ثم npm start.`);
+    }
+    throw new Error(`استجابة غير متوقعة من السيرفر (HTTP ${res.status})`);
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'حدث خطأ');
   return data;
@@ -62,6 +71,7 @@ function showWANotification(customerId, customerName, msgText, isNew) {
 
 // ═══════════════ CONSTANTS ═══════════════
 const STATUSES = [
+  { key: "new",              label: "لم يبدأ",            color: "#64748b", bg: "#f1f5f9",  icon: "🆕" },
   { key: "first_attempt",    label: "محاوله اولي",        color: "#22c55e", bg: "#f0fdf4",  icon: "1️⃣" },
   { key: "second_attempt",   label: "محاوله ثانيه",       color: "#eab308", bg: "#fefce8",  icon: "2️⃣" },
   { key: "third_attempt",    label: "محاوله ثالثه",       color: "#1e293b", bg: "#f1f5f9",  icon: "3️⃣" },

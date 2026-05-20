@@ -1162,6 +1162,81 @@ a:hover { color: var(--bz-leaf); }
 .modal-body { padding: 24px; }
 .modal-ftr { padding: 16px 24px; border-top: 1px solid var(--bz-line); background: #fafbfa; }
 
+/* ═══════════════ Mobile customer list — card layout ═══════════════ */
+@media (max-width: 768px) {
+  .tbl-wrap { overflow: visible; }
+  .tbl thead { display: none; }
+  .tbl, .tbl tbody, .tbl tr, .tbl td { display: block; width: 100%; }
+  .tbl tr {
+    background: #fff;
+    border: 1px solid var(--bz-line);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: var(--bz-shadow-xs);
+    position: relative;
+    transition: all .25s ease;
+  }
+  .tbl tr:hover {
+    border-color: rgba(22,163,74,.3);
+    box-shadow: var(--bz-shadow-md);
+    transform: translateY(-2px);
+  }
+  .tbl td {
+    border: 0 !important;
+    padding: 4px 0 !important;
+    text-align: right;
+  }
+  .tbl td:first-child {  /* checkbox cell */
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: auto !important;
+    padding: 0 !important;
+  }
+  /* Customer name cell — make it the title */
+  .tbl td:nth-child(2) > div > div > div:first-child {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: var(--bz-emerald-deep);
+    margin-bottom: 2px;
+  }
+  /* Phone — show with prefix */
+  .tbl td:nth-child(3)::before {
+    content: '📞 ';
+    color: var(--bz-muted);
+  }
+  .tbl td:nth-child(3) {
+    font-size: 13px !important;
+    color: var(--bz-ink-soft);
+  }
+  /* Status badge cell - center it */
+  .tbl td:nth-child(6) {
+    margin-top: 6px;
+  }
+  /* Last-contact cell */
+  .tbl td:nth-child(9)::before {
+    content: '⏰ ';
+  }
+  .tbl td:nth-child(9) {
+    font-size: 11px !important;
+    color: var(--bz-muted);
+    margin-top: 2px;
+  }
+  /* Action button cell */
+  .tbl td:last-child {
+    margin-top: 8px;
+    border-top: 1px dashed var(--bz-line-soft) !important;
+    padding-top: 8px !important;
+  }
+  .tbl td:last-child .btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--bz-emerald), var(--bz-leaf)) !important;
+    color: #fff !important;
+    font-weight: 700;
+  }
+}
+
 /* Premium dividers */
 hr { border: 0; border-top: 1px solid var(--bz-line-soft); margin: 18px 0; }
 

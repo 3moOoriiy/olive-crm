@@ -15,7 +15,7 @@ const jt = require('./jt');
 const cors = require('cors');
 
 // ═══════════════ CONSTANTS ═══════════════
-const VALID_STATUSES = ['first_attempt', 'second_attempt', 'third_attempt', 'confirmed', 'rejected', 'waiting_transfer', 'postponed', 'shipped', 'duplicate'];
+const VALID_STATUSES = ['new', 'first_attempt', 'second_attempt', 'third_attempt', 'confirmed', 'rejected', 'waiting_transfer', 'postponed', 'shipped', 'duplicate'];
 
 // ═══════════════ SERVER SETUP ═══════════════
 const app = express();
@@ -244,7 +244,7 @@ app.post('/api/customers', requireAuth, (req, res) => {
     || req.user.id;
   const result = db.run(`
     INSERT INTO customers (name, phone, phone2, region, source, assigned_to, notes, address, status, last_contact, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'first_attempt', datetime('now'), datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', datetime('now'), datetime('now'))
   `, [name, normalized, normalizePhone(phone2) || '', region || '', source || '', resolvedAssignee, notes || '', address || '']);
 
   // Add timeline entry
@@ -647,7 +647,9 @@ app.post('/api/customers/:id/orders', requireAuth, (req, res) => {
 
   const order = db.get('SELECT * FROM orders WHERE id = ?', [result.lastInsertRowid]);
 
-  db.run('UPDATE customers SET status = ?, last_contact = datetime("now") WHERE id = ?', ['ordered', customerId]);
+  // Don't auto-change customer status — agent must take the action explicitly.
+  // Only refresh last_contact so the "آخر تواصل" badge updates.
+  db.run('UPDATE customers SET last_contact = datetime("now") WHERE id = ?', [customerId]);
   const tlLabels = resolved.map(r => `${r.productName} × ${r.qty}`).join(' • ');
   db.run(`
     INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
@@ -1152,12 +1154,12 @@ app.post('/api/moderator-orders', requireAuth, requirePermission('orders:create'
 
   const normalized = normalizePhone(phone);
 
-  // Find or create customer
+  // Find or create customer (default to 'new' — no auto-action)
   let customer = db.get('SELECT * FROM customers WHERE phone = ?', [normalized]);
   if (!customer) {
     const custResult = db.run(`
       INSERT INTO customers (name, phone, phone2, address, source, status, assigned_to, last_contact, created_at)
-      VALUES (?, ?, ?, ?, 'مودوريتور', 'confirmed', ?, datetime('now'), datetime('now'))
+      VALUES (?, ?, ?, ?, 'مودوريتور', 'new', ?, datetime('now'), datetime('now'))
     `, [customerName, normalized, normalizePhone(phone2) || '', address || '', req.user.id]);
     customer = db.get('SELECT * FROM customers WHERE id = ?', [custResult.lastInsertRowid]);
     db.run(`INSERT INTO timeline (customer_id, type, text, icon, user_name, user_id, created_at)
@@ -1489,7 +1491,7 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
       const assignedTo = pickNextCallCenterAgent();
       const result = db.run(`
         INSERT INTO customers (name, phone, region, address, source, notes, status, assigned_to, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'first_attempt', ?, datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, 'new', ?, datetime('now'))
       `, [name, phone, region, address, source, notes, assignedTo]);
       customerId = result.lastInsertRowid;
     }
