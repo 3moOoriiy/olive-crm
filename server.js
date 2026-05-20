@@ -13,6 +13,7 @@ const { loginHandler, requireAuth, requireRole, requirePermission, PERMISSIONS, 
 const { initWhatsApp, getStatus, sendMessage } = require('./whatsapp');
 const jt = require('./jt');
 const cors = require('cors');
+const crypto = require('crypto');
 
 // ═══════════════ CONSTANTS ═══════════════
 const VALID_STATUSES = ['new', 'first_attempt', 'second_attempt', 'third_attempt', 'confirmed', 'rejected', 'waiting_transfer', 'postponed', 'shipped', 'duplicate'];
@@ -25,6 +26,8 @@ app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = new Server(server);
 
+// Shopify webhook needs the RAW body to verify HMAC — register BEFORE express.json
+app.use('/api/shopify/webhook', express.raw({ type: '*/*', limit: '5mb' }));
 app.use(express.json({ limit: '10mb' }));
 
 // ═══════════════ CORS — only on /api/integrations/* (public webhook) ═══════════════
@@ -1600,6 +1603,152 @@ app.post('/api/integrations/orders', requireApiKey, (req, res) => {
   } catch (err) {
     console.error('Integration order error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ═══════════════ SHOPIFY WEBHOOK ═══════════════
+// Shopify sends orders here when 'orders/create' webhook fires.
+// Configure on Shopify Dashboard → Notifications → Webhooks.
+// Set SHOPIFY_WEBHOOK_SECRET on the server to enable HMAC verification.
+
+// Helper: extract a usable Egyptian phone from a Shopify order
+function pickShopifyPhone(order) {
+  return (
+    order.shipping_address?.phone ||
+    order.billing_address?.phone ||
+    order.phone ||
+    order.customer?.phone ||
+    ''
+  );
+}
+
+app.post('/api/shopify/webhook/orders', (req, res) => {
+    try {
+      // ─── HMAC verification (skip only if secret intentionally blank for testing) ───
+      const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
+      const hmacHeader = req.get('X-Shopify-Hmac-Sha256');
+      if (secret) {
+        if (!hmacHeader) return res.status(401).send('Missing HMAC');
+        const computed = crypto
+          .createHmac('sha256', secret)
+          .update(req.body)
+          .digest('base64');
+        const a = Buffer.from(computed);
+        const b = Buffer.from(hmacHeader);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+          return res.status(401).send('HMAC mismatch');
+        }
+      }
+
+      // ─── Parse payload ───
+      let order;
+      try { order = JSON.parse(req.body.toString('utf8')); }
+      catch (e) { return res.status(400).send('Bad JSON'); }
+
+      const db = getDB();
+      const shop = req.get('X-Shopify-Shop-Domain') || '';
+      const shopifyOrderId = String(order.id || order.name || '');
+
+      // ─── Skip duplicates ───
+      if (shopifyOrderId) {
+        const dup = db.get(
+          'SELECT id FROM orders WHERE external_order_id = ? AND source = ? LIMIT 1',
+          [shopifyOrderId, 'shopify']
+        );
+        if (dup) return res.status(200).json({ ok: true, deduped: true, orderId: dup.id });
+      }
+
+      // ─── Customer info ───
+      const ship = order.shipping_address || order.billing_address || {};
+      const customerFullName = `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim();
+      const name = ship.name || customerFullName || 'عميل Shopify';
+      const rawPhone = pickShopifyPhone(order);
+      const phone = normalizePhone(rawPhone || '');
+      if (!phone) return res.status(400).send('Missing customer phone');
+
+      const region = ship.province || ship.city || '';
+      const address = [ship.address1, ship.address2, ship.city].filter(Boolean).join(' — ');
+
+      // ─── Find or create customer (default 'new', round-robin assign) ───
+      let customer = db.get('SELECT id FROM customers WHERE phone = ?', [phone]);
+      let customerId;
+      if (customer) {
+        customerId = customer.id;
+        if (region || address) {
+          db.run(
+            `UPDATE customers SET region = COALESCE(NULLIF(?, ''), region), address = COALESCE(NULLIF(?, ''), address) WHERE id = ?`,
+            [region, address, customerId]
+          );
+        }
+      } else {
+        const assignedTo = pickNextCallCenterAgent();
+        const result = db.run(
+          `INSERT INTO customers (name, phone, region, address, source, status, assigned_to, created_at)
+           VALUES (?, ?, ?, ?, 'Shopify', 'new', ?, datetime('now'))`,
+          [name, phone, region, address, assignedTo]
+        );
+        customerId = result.lastInsertRowid;
+      }
+
+      // ─── Build line items ───
+      const items = (order.line_items || []).map(li => {
+        const qty = parseInt(li.quantity, 10) || 1;
+        const price = parseFloat(li.price) || 0;
+        return {
+          productId: 0,
+          productName: li.title || li.name || 'منتج',
+          qty,
+          price,
+          total: price * qty,
+        };
+      });
+      if (!items.length) {
+        items.push({
+          productId: 0,
+          productName: order.name || 'طلب Shopify',
+          qty: 1,
+          price: parseFloat(order.total_price) || 0,
+          total: parseFloat(order.total_price) || 0,
+        });
+      }
+
+      const grand = items.reduce((s, it) => s + it.total, 0);
+      const totalQty = items.reduce((s, it) => s + it.qty, 0);
+      const first = items[0];
+      const summary = items.length === 1
+        ? first.productName
+        : `${first.productName} +${items.length - 1} منتجات`;
+      const itemsJson = items.length > 1 ? JSON.stringify(items) : '';
+
+      const orderResult = db.run(
+        `INSERT INTO orders (customer_id, product_id, product_name, qty, price, total, status, address, source, items_json, external_order_id, created_at)
+         VALUES (?, 0, ?, ?, ?, ?, 'جديد', ?, 'shopify', ?, ?, datetime('now'))`,
+        [customerId, summary, totalQty, first.price, grand, address, itemsJson, shopifyOrderId]
+      );
+      const orderId = orderResult.lastInsertRowid;
+
+      // Timeline
+      const tlLabels = items.map(it => `${it.productName} × ${it.qty}`).join(' • ');
+      db.run(
+        `INSERT INTO timeline (customer_id, type, text, icon, user_name, created_at)
+         VALUES (?, 'order', ?, '🛒', 'Shopify', datetime('now'))`,
+        [customerId, `طلب Shopify (#${shopifyOrderId}): ${tlLabels} — إجمالي ${grand} ج`]
+      );
+
+      // Live notification to connected CRM users
+      try {
+        io.emit('integration:new_order', {
+          customerId, orderId, name, phone, source: 'shopify',
+          shopName: shop, shopifyOrderId, total: grand,
+        });
+      } catch (_) {}
+
+      // Respond fast (Shopify times out at 5s)
+      res.status(200).json({ ok: true, customerId, orderId });
+  } catch (err) {
+    console.error('Shopify webhook error:', err);
+    // Return 200 anyway so Shopify doesn't keep retrying for unrecoverable errors
+    res.status(200).json({ ok: false, error: err.message });
   }
 });
 

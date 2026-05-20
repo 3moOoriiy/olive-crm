@@ -124,6 +124,8 @@ async function initDB() {
   try { db.run(`ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'manual'`); } catch(e) {}
   // Multi-product line items (JSON array): [{productId, productName, qty, price, total}, ...]
   try { db.run(`ALTER TABLE orders ADD COLUMN items_json TEXT DEFAULT ''`); } catch(e) {}
+  // External order ID (Shopify / WooCommerce / etc.)
+  try { db.run(`ALTER TABLE orders ADD COLUMN external_order_id TEXT DEFAULT ''`); } catch(e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (
